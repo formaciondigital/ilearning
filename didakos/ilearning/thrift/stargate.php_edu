@@ -1,0 +1,103 @@
+<?php
+/*
+CABECERA
+
+*/
+
+include_once(dirname ( __FILE__ )."/../../main/inc/lib/database.lib.php");
+include(dirname ( __FILE__ )."/../../main/inc/conf/configuration.php");
+/* 
+--------------------------------- THRIFT -----------------------------------
+*/
+$GLOBALS['THRIFT_ROOT'] = dirname(__FILE__).'/thrift';
+require_once $GLOBALS['THRIFT_ROOT'].'/Thrift.php';
+require_once $GLOBALS['THRIFT_ROOT'].'/protocol/TBinaryProtocol.php';
+require_once $GLOBALS['THRIFT_ROOT'].'/transport/TPhpStream.php';
+require_once $GLOBALS['THRIFT_ROOT'].'/transport/TBufferedTransport.php';
+$GEN_DIR = dirname(__FILE__).'/thrift/packages';
+require_once $GEN_DIR.'/ilearning/ILearning.php';
+require_once $GEN_DIR.'/ilearning/ilearning_types.php';
+include_once "metodos.class.php";
+
+/* 
+--------------------------------- OAUTH -----------------------------------
+*/
+include_once "../oauth/library/OAuthRequestVerifier.php";
+include_once "../oauth/library/OAuthRequester.php";
+include_once "../oauth/library/OAuthStore.php";
+define("IPHONE", 1);
+
+$dboptions = array('server' => $db_host, 'username' => $db_user,'password' => $db_pass,  'database' => $oauth_database);
+$store   = OAuthStore::instance('MySQL', $dboptions);
+
+// Try to get Oauth headers
+$headers = apache_request_headers();
+
+foreach ($headers as $key=>$value) {
+	if ($key=='Authorization')
+	{
+		$authoritation = explode(',', $headers[$key]);
+		foreach ($authoritation as $key2=>$value2) {
+			// Begin with one space
+			if ( substr($authoritation[$key2],1,18) =='oauth_consumer_key')
+			{
+				//Delete name and ="
+				$cadena = substr($authoritation[$key2],21);
+				//delete end "
+				$consumer_key = substr($authoritation[$key2],21, strlen($cadena) -1 );				
+			}
+			if ( substr($authoritation[$key2],1,11) =='oauth_token')
+			{
+				//Delete name and ="
+				$cadena = substr($authoritation[$key2],14);
+				//delete end "
+				$access_token = substr($authoritation[$key2],14, strlen($cadena) -1 );				
+			}
+		}
+	}
+}
+
+// Get user_id from oauth_user main table using access token
+$user_id = GetUserIdByAccessToken ($access_token);
+// Get if from oauth_app_user using consumer_key and el consumer_secret
+$id = GetUserByCsAndCk ($consumer_key,$consumer_secret);
+//URL 
+$request_uri = $_configuration['root_web']. 'ilearning/oauth/validate.php';
+$request_uri = str_replace('http://','https://',$request_uri);
+
+// Parameters, appended to the request depending on the request method.
+// Will become the POST body or the GET query string.
+$params = array('method' => 'POST','consulta' => 'validar','user_id' => $user_id);
+// Obtain a request object for the request we want to make
+$req = new OAuthRequester($request_uri, 'POST', $params);
+// Sign the request, perform a curl request and return the results, throws OAuthException exception on an error
+$result = $req->doRequest($id,null,$params);
+// $result is an array of the form: array ('code'=>int, 'headers'=>array(), 'body'=>string)
+
+// ltrim to clean
+ if  (ltrim($result['body']) == 'molamazo')
+ {
+	try{
+
+	$handler = new ILearningHandler();
+	$processor = new ILearningProcessor($handler);
+
+	$transport = new TBufferedTransport(new TPhpStream(TPhpStream::MODE_R | TPhpStream::MODE_W));
+	// strictRead_ is false, on true did not worked.
+
+	$protocol = new TBinaryProtocol($transport, false, true);
+
+	$transport->open();
+	$processor->process($protocol, $protocol);
+	$transport->close();
+
+	}catch(Exception $e){
+		echo 'Excepción capturada: ',  $e->getMessage(), "\n";
+	}
+}
+else
+{
+    // Return error to App
+    // Not implemented
+}
+?>

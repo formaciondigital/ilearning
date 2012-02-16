@@ -1,0 +1,90 @@
+@charset "UTF-8";
+/* CSS Document */
+
+@charset "utf-8";
+body {
+    text-align: center
+    }
+div.contenedor {
+    margin: 0 auto 0 auto;
+    width: 320px;
+    text-align: center;
+    position: relative
+    }
+div.logo {
+    position: relative;
+    /*    height: 56px;*/
+    width: 100%
+    }
+div.fondo_login {
+    background: url(../img/acceso_directo.gif);
+    height: 248px;
+    width: 320px
+    }
+div.divformlogin {
+    height: 60px;
+    width: 310px;
+    padding-top: 130px;
+    float: left
+    }
+div.cajalogin1 {
+    height: 20px;
+    width: 150px;
+    float: left;
+    margin-left: 120px;
+    margin-top: 70px;
+	position: absolute;
+    }
+div.cajalogin2 {
+    height: 20px;
+    width: 150px;
+    float: left;
+    margin-left: 120px;
+    margin-top: 114px;
+    margin-right: auto;
+	position: absolute;
+    }
+div.ir {
+    height: 40px;
+    width: 50px;
+    float: right;
+    margin-left: 135px;
+    margin-top: 150px;
+	position:absolute;
+    }
+div.pie {
+    height: 56px;
+    width: 320px;
+    top: 280px;
+    left: 0;
+    background-image: url(../img/img_base.jpg);
+    position: absolute;
+    bottom: 0;
+    clear: both
+    }
+.campo_form {
+    border: 0;
+    font-size: 10px;
+	height: 20px;
+    width: 150px;
+    /*    width:250;*/
+    background: none
+    }
+div.contenedorAbajo {
+    height: 40px;
+    width: 320px;
+    margin: 0;
+    float: left
+    }
+div.logo_fd {
+    position: absolute;
+    left: 468px;
+    top: 340px;
+    width: 104px;
+    z-index: 2
+    }
+a, image, img {
+    border: none;
+    outline: none;
+    text-decoration: none
+    }

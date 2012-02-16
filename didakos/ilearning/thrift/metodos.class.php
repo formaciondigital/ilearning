@@ -56,36 +56,40 @@ public function getLecturesScos($course_id,$sco_id){
     global $conn;
     global $db_videomodel;
     global $db_prefix;
-   	global $user_id;
-   	
+    global $user_id;
     $videos = array();
-     if (preg_match("/demo/i",$course_id ))
-     {
-        // If course is a "demo" version we limit visible videos to 2.
-        $limit = " limit 2";
-     }
-    // First of all we need launch_data values from lp_item table
-    $sql = 'select launch_data from lp_item where id=' . $sco_id ;
-	mysql_select_db($db_prefix.$course_id);    
-    $rs = mysql_query($sql,$conn);
-    $row = mysql_fetch_array($rs);
-    // Got it! Now Select all videos from this sco.       
-    $sql = "select p.id,s.titulo as title,p.titulo,p.descripcion,p.link from cursos_scos cs, scos s, sco_paginas sp, paginas p, cursos c where c.identificadorFD=" . substr($course_id,0,5) . " and c.id=cs.curso_id and s.id=".getVideomodelScoId($row["launch_data"])." and s.id=cs.sco_id and s.id=sp.sco_id and p.id=sp.pagina_id and p.id in(". getVideomodelPageslist($row["launch_data"]). ") order by p.id" . $limit;
     
-    mysql_select_db($db_videomodel);	
-    $rs = mysql_query($sql,$conn);
-    while($row = mysql_fetch_array($rs)){      
-        $video = new LecturesScos();
-        $video->lecture_id = $row["id"];
-        $video->modulo = $row["title"] ;
-        $video->title = limpiarcadena($row["titulo"]);
-        $video->text = limpiarcadena($row["descripcion"]);
-        $video->url = getSignedURL('http://videos.formaciondigital.com/' . $row["link"]. '.mp4', 3000, 'canned');
-        $video->img = getSignedURL('http://videos.formaciondigital.com/' . $row["link"]. '.jpg', 3000, 'canned');
-        // Searh for suspend_data to see if video is completed.
-        $video->completed = isVideoCompleted ($course_id,$sco_id,$row["id"]);                
-        $videos[]=$video;
-    }    
+    if (IsUserAllowed($course_id))
+    {
+      if (preg_match("/demo/i",$course_id ))
+      {
+	// If course is a "demo" version we limit visible videos to 2.
+	$limit = " limit 2";
+      }
+      // First of all we need launch_data values from lp_item table
+      $sql = 'select launch_data from lp_item where id=' . $sco_id ;
+      mysql_select_db($db_prefix.$course_id);    
+      $rs = mysql_query($sql,$conn);
+      $row = mysql_fetch_array($rs);
+      // Got it! Now Select all videos from this sco.       
+      $sql = "select p.id,s.titulo as title,p.titulo,p.descripcion,p.link from cursos_scos cs, scos s, sco_paginas sp, paginas p, cursos c where c.identificadorFD=" . substr($course_id,0,5) . " and c.id=cs.curso_id and s.id=".getVideomodelScoId($row["launch_data"])." and s.id=cs.sco_id and s.id=sp.sco_id and p.id=sp.pagina_id and p.id in(". getVideomodelPageslist($row["launch_data"]). ") order by p.id" . $limit;
+
+      mysql_select_db($db_videomodel);	
+      $rs = mysql_query($sql,$conn);
+      while($row = mysql_fetch_array($rs)){      
+	$video = new LecturesScos();
+	$video->lecture_id = $row["id"];
+	$video->modulo = $row["title"] ;
+	$video->title = limpiarcadena($row["titulo"]);
+	$video->text = limpiarcadena($row["descripcion"]);
+	$video->url = getSignedURL('http://videos.formaciondigital.com/' . $row["link"]. '.mp4', 3000, 'canned');
+	$video->img = getSignedURL('http://videos.formaciondigital.com/' . $row["link"]. '.jpg', 3000, 'canned');
+	// Searh for suspend_data to see if video is completed.
+	$video->completed = isVideoCompleted ($course_id,$sco_id,$row["id"]);                
+	$videos[]=$video;
+      }    
+      
+    }
     return $videos;
 }
 
@@ -93,127 +97,135 @@ public function getScos($course_id){
     // Return scos from a videomodel course.
     global $conn;
     global $db_prefix;
-   	global $user_id;
-   	global $db_videomodel;
-   	
+    global $user_id;
+    global $db_videomodel;
     $scos = array();
-    // Get values from lp_item table.
-    $sql = 'select id,title,description,launch_data from lp_item where item_type="sco" order by lp_id,display_order';
-	mysql_select_db($db_prefix.$course_id);    
-    $rs = mysql_query($sql,$conn);
-    while($row = mysql_fetch_array($rs)){      
-	    $sco = new Scos();
-	    $sco->id_sco = $row["id"];
-	        //Now we are going to use videomodel database to obtain title and description. 
-	        // Extracting sco_id from launch_data.   
-	        $sql = "select s.id,s.titulo,s.descripcion from cursos_scos cs, scos s where s.id=" .getVideomodelScoId($row["launch_data"]). " and s.id=cs.sco_id";
-        	mysql_select_db($db_videomodel);    
-            $rs2 = mysql_query($sql,$conn);
-            $row2 = mysql_fetch_array($rs2);      
-	        $sco->title = $row2["titulo"];
-	        $sco->text = $row2["descripcion"];
-	    // Count number of videos inside.
-	    // Launch_data is something like "54#1,2,3,4,5,6" so if we split it using "," as separator 
-	    // we get the number of videos. First number is sco_id and the others are ordered video id's.
-  	    if (preg_match("/demo/i",$course_id ))
-         {
-            // If course is a "demo" version we limit visible videos to 2.
-            $pages_count = 2;
-         } 
-         else
-         {
-            $temp = getVideomodelPagesArray ($row["launch_data"]);
-      	    $pages_count = count($temp);	   
-         }
-	    // Is sco completed by the user? True or False.
-  	    $sco->completed = isScoCompleted($course_id,$row["id"],$pages_count);
-	    $scos[] = $sco;
+
+    if (IsUserAllowed($course_id))
+    {
+      // Get values from lp_item table.
+      $sql = 'select id,title,description,launch_data from lp_item where item_type="sco" order by lp_id,display_order';
+      mysql_select_db($db_prefix.$course_id);    
+      $rs = mysql_query($sql,$conn);
+      while($row = mysql_fetch_array($rs)){      
+	$sco = new Scos();
+	$sco->id_sco = $row["id"];
+	//Now we are going to use videomodel database to obtain title and description. 
+	// Extracting sco_id from launch_data.   
+	$sql = "select s.id,s.titulo,s.descripcion from cursos_scos cs, scos s where s.id=" .getVideomodelScoId($row["launch_data"]). " and s.id=cs.sco_id";
+	mysql_select_db($db_videomodel);    
+	$rs2 = mysql_query($sql,$conn);
+	$row2 = mysql_fetch_array($rs2);      
+	$sco->title = $row2["titulo"];
+	$sco->text = $row2["descripcion"];
+	// Count number of videos inside.
+	// Launch_data is something like "54#1,2,3,4,5,6" so if we split it using "," as separator 
+	// we get the number of videos. First number is sco_id and the others are ordered video id's.
+	if (preg_match("/demo/i",$course_id ))
+	{
+	  // If course is a "demo" version we limit visible videos to 2.
+	  $pages_count = 2;
+	} 
+	else
+	{
+	  $temp = getVideomodelPagesArray ($row["launch_data"]);
+	  $pages_count = count($temp);	   
 	}
-	return $scos;
+	// Is sco completed by the user? True or False.
+	$sco->completed = isScoCompleted($course_id,$row["id"],$pages_count);
+	$scos[] = $sco;
+      }
+    }
+    return $scos;
 }
 
 public function saveLecturesScos($course_id,$sco_id,$video_id){
     // Save learner score
     global $conn;
     global $db_prefix;
-   	global $user_id;  	
-  	
-  	// If video is already completed, we don't need to do all this.
-  	if (!isVideoCompleted ($course_id,$sco_id,$video_id))
-  	{
-       	mysql_select_db($db_prefix.$course_id);
-	    // Select last lp_view row, if there is no rows on lp_view we must insert first one.
-	    $sql = "select id as id_view from lp_view where user_id=" . $user_id . " and lp_id=" . $sco_id;
-	    $rs = mysql_query($sql,$conn);
-	    $row = mysql_fetch_array($rs);
+    global $user_id;  	
+    if (IsUserAllowed($course_id))
+	{
+	  // If video is already completed, we don't need to do all this.
+	  if (!isVideoCompleted ($course_id,$sco_id,$video_id))
+	  {
+	  mysql_select_db($db_prefix.$course_id);
+	      // Select last lp_view row, if there is no rows on lp_view we must insert first one.
+	      $sql = "select id as id_view from lp_view where user_id=" . $user_id . " and lp_id=" . $sco_id;
+	      $rs = mysql_query($sql,$conn);
+	      $row = mysql_fetch_array($rs);
 
-	    if (mysql_num_rows($rs)>0)
-	    {
-		    $lp_view_id = $row["id_view"];
-	    }
-	    else
-	    {
-	        // Adding first row for this user
-		    $sql = "insert into lp_view (lp_id, user_id, view_count) values (".$sco_id.", ". $user_id . ", 1)";
-            $rs = mysql_query($sql,$conn);
-	        // Look for last inserted id
-		    $sql = "select max(id) as id_view from lp_view where user_id=" . $user_id . " and lp_id=" . $sco_id;;
-		    $rs = mysql_query($sql,$conn);
-	        $row = mysql_fetch_array($rs);
-	        // Take last Id
-	        $lp_view_id = $row["id_view"];		
+	      if (mysql_num_rows($rs)>0)
+	      {
+		      $lp_view_id = $row["id_view"];
+	      }
+	      else
+	      {
+		  // Adding first row for this user
+		      $sql = "insert into lp_view (lp_id, user_id, view_count) values (".$sco_id.", ". $user_id . ", 1)";
+	      $rs = mysql_query($sql,$conn);
+		  // Look for last inserted id
+		      $sql = "select max(id) as id_view from lp_view where user_id=" . $user_id . " and lp_id=" . $sco_id;;
+		      $rs = mysql_query($sql,$conn);
+		  $row = mysql_fetch_array($rs);
+		  // Take last Id
+		  $lp_view_id = $row["id_view"];		
 
-	    }   
-	    
-	    // Get sco_id Launch_data and calculate pages, key of the video and score 
-        $sql = 'select launch_data from lp_item where id=' . $sco_id ;
-        mysql_select_db($db_prefix.$course_id);    
-        $rs = mysql_query($sql,$conn);
-        $row = mysql_fetch_array($rs);   
-    	$pages_array = getVideomodelPagesArray ($row["launch_data"]);             
-		$key = GetKeyFromPagesArray ($pages_array,$video_id);
-        $total_videos = count($pages_array);
-        		
-        // Select lp_item_view id, if there is no rows on lp__item_view we must insert first one.
-        $sql = "select id,suspend_data from lp_item_view where lp_view_id=" . $lp_view_id. " and lp_item_id=" . $sco_id;  
-        $rs = mysql_query($sql,$conn);
-	    $row = mysql_fetch_array($rs);
-        if (mysql_num_rows($rs)>0)
-	    {
-	        // Update scorm information
-		    $lp_item_view_id = $row["id"];
-		    $suspend_data = $row["suspend_data"];	    
-	        // New suspend_data string
-	        if ($suspend_data=="")
-	        {
-	            $suspend_data = $key;
-	        }
-	        else
-	        {
-	            $suspend_data = $suspend_data . "#" . $key;
-	        }
-	        
-	        $temp = explode("#",$suspend_data);
-            $visitados = count($temp);
-            $score = round(($visitados * 100) / $total_videos,2);
-	        // Calculate new score.
-            // Update values	        
-		    $sql = "update lp_item_view set suspend_data='" .$suspend_data. "',score=" .$score. " where id=" . $lp_item_view_id;
-		    $rs = mysql_query($sql,$conn);		
-	    }
-	    else
-	    {       
-	    
-	        $temp = explode("#",$suspend_data);
-            $visitados = count($temp);
-            $score = round(($visitados * 100) / $total_videos,2);
-	        //Insert Scorm information, suspend_data has only this new value ($key)
-		    $sql = "insert into lp_item_view (lp_item_id, lp_view_id, view_count, start_time, status,score,suspend_data) values (".$sco_id.",". $lp_view_id .",1,unix_timestamp(CURRENT_TIMESTAMP()),'completed',".$score.",'" .$key ."')";		
-           	 $rs = mysql_query($sql,$conn);			        
-	    }
-    }
-    // End
+	      }   
+	      
+	      // Get sco_id Launch_data and calculate pages, key of the video and score 
+	  $sql = 'select launch_data from lp_item where id=' . $sco_id ;
+	  mysql_select_db($db_prefix.$course_id);    
+	  $rs = mysql_query($sql,$conn);
+	  $row = mysql_fetch_array($rs);   
+	  $pages_array = getVideomodelPagesArray ($row["launch_data"]);             
+		  $key = GetKeyFromPagesArray ($pages_array,$video_id);
+	  $total_videos = count($pages_array);
+			  
+	  // Select lp_item_view id, if there is no rows on lp__item_view we must insert first one.
+	  $sql = "select id,suspend_data from lp_item_view where lp_view_id=" . $lp_view_id. " and lp_item_id=" . $sco_id;  
+	  $rs = mysql_query($sql,$conn);
+	      $row = mysql_fetch_array($rs);
+	  if (mysql_num_rows($rs)>0)
+	      {
+		  // Update scorm information
+		      $lp_item_view_id = $row["id"];
+		      $suspend_data = $row["suspend_data"];	    
+		  // New suspend_data string
+		  if ($suspend_data=="")
+		  {
+		      $suspend_data = $key;
+		  }
+		  else
+		  {
+		      $suspend_data = $suspend_data . "#" . $key;
+		  }
+		  
+		  $temp = explode("#",$suspend_data);
+	      $visitados = count($temp);
+	      $score = round(($visitados * 100) / $total_videos,2);
+		  // Calculate new score.
+	      // Update values	        
+		      $sql = "update lp_item_view set suspend_data='" .$suspend_data. "',score=" .$score. " where id=" . $lp_item_view_id;
+		      $rs = mysql_query($sql,$conn);		
+	      }
+	      else
+	      {       
+	      
+		  $temp = explode("#",$suspend_data);
+	      $visitados = count($temp);
+	      $score = round(($visitados * 100) / $total_videos,2);
+		  //Insert Scorm information, suspend_data has only this new value ($key)
+		      $sql = "insert into lp_item_view (lp_item_id, lp_view_id, view_count, start_time, status,score,suspend_data) values (".$sco_id.",". $lp_view_id .",1,unix_timestamp(CURRENT_TIMESTAMP()),'completed',".$score.",'" .$key ."')";		
+		  $rs = mysql_query($sql,$conn);			        
+	      }
+	}
 	return True;
+      }
+    else
+    {
+      return False;
+    }
 }
 
 public function getLectures($course_id){
@@ -367,11 +379,12 @@ public function logoutCourse($course_id){
 
     // Logout from platform
     // Insert logout date on track_e_course_access table, search for the last login (with logout=null) for update.
-	global $conn;
-        global $db_prefix;
-	global $user_id;
-        global $db_stats_database;
-
+    global $conn;
+    global $db_prefix;
+    global $user_id;
+    global $db_stats_database;
+    if (IsUserAllowed($course_id))
+      {
 	$sql = "select max(course_access_id) as access_id from track_e_course_access where course_code='" .$course_id ."' and user_id= ". $user_id . " and ISNULL(logout_course_date)";
 	mysql_select_db($db_stats_database);
 	$rs = mysql_query($sql,$conn);
@@ -381,11 +394,16 @@ public function logoutCourse($course_id){
 	{
 		// We have a previous login, update the row to add logout date.
 		$sql = "update track_e_course_access set logout_course_date=now()
-		 where course_access_id=" .$row["access_id"];
+		  where course_access_id=" .$row["access_id"];
 		mysql_select_db($db_stats_database);
 		$rs = mysql_query($sql,$conn);
 	}
-	return True;	
+	return True;
+    }
+    else
+    {
+	return False;
+    }
 }
 
 public function loginCourse($course_id){
@@ -396,7 +414,7 @@ public function loginCourse($course_id){
    	global $db_prefix;
 	global $user_id;
         global $db_stats_database;
-	if (IsUserAllowed)
+	if (IsUserAllowed($course_id))
 	{
 	$sql = "insert into track_e_course_access (course_code,user_id,login_course_date,counter) 
 	values ('".$course_id."',".$user_id.",now(),1)";
@@ -411,48 +429,55 @@ public function loginCourse($course_id){
 public function saveLecture($course_id,$lecture_id,$time,$score,$status)
 	{
 
-    // Save the learner progress on a course
+	// Save the learner progress on a course
 	global $conn;
-    global $db_prefix;
+	global $db_prefix;
 	global $user_id;
 
-	mysql_select_db($db_prefix.$course_id);
-	// Select last lp_view row, if there is no rows on lp_view we must insert first one.
-	$sql = "select max(id) as id_view from lp_view where user_id=" . $user_id . " and lp_id=" . $lecture_id;
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-	if (mysql_num_rows($rs)>0)
+	if (IsUserAllowed($course_id))
 	{
-		$lp_view_id = $row["id_view"];
+	  mysql_select_db($db_prefix.$course_id);
+	  // Select last lp_view row, if there is no rows on lp_view we must insert first one.
+	  $sql = "select max(id) as id_view from lp_view where user_id=" . $user_id . " and lp_id=" . $lecture_id;
+	  $rs = mysql_query($sql,$conn);
+	  $row = mysql_fetch_array($rs);
+	  if (mysql_num_rows($rs)>0)
+	  {
+		  $lp_view_id = $row["id_view"];
+	  }
+	  else
+	  {
+		  // Adding first row
+		  $sql = "insert into lp_view (lp_id, user_id, view_count) values (1, ". $user_id . ", 1)";
+		  $lp_view_id = 1;
+		  $rs = mysql_query($sql,$conn);
+	  }
+
+	  // Select lp_item_view row, if there is no rows on lp__item_view we must insert first one.
+	  $sql = "select id,start_time from lp_item_view where lp_view_id=" . $lp_view_id. " and lp_item_id=" .       $lecture_id;
+	  $rs = mysql_query($sql,$conn);
+	  $row = mysql_fetch_array($rs);
+
+	  if (mysql_num_rows($rs)>0)
+	  {
+		  // There is a row, update it
+		  // Time on suspend_data for video model courses
+		  $lp_item_view_id = $row["id"];
+		  $sql = "update lp_item_view set start_time=unix_timestamp(CURRENT_TIMESTAMP()), status='".$status."',total_time=" .$time. ",suspend_data=" .$time. ",score=" .$score. " where id=" . $lp_item_view_id;
+		  $rs = mysql_query($sql,$conn);		
+	  }
+	  else
+	  {
+		  // No row. Insert first one
+		  $sql = "insert into lp_item_view (lp_item_id, lp_view_id, view_count, start_time, status,score,suspend_data,total_time) values (".$lecture_id.",". $lp_view_id .",1,unix_timestamp(CURRENT_TIMESTAMP()),'".$status."',".$score."," .$time .",".$time .")";		
+	  $rs = mysql_query($sql,$conn);		
+	  }
+	  return True;
 	}
 	else
 	{
-		// Adding first row
-		$sql = "insert into lp_view (lp_id, user_id, view_count) values (1, ". $user_id . ", 1)";
-		$lp_view_id = 1;
-		$rs = mysql_query($sql,$conn);
+	  return False;
 	}
-
-	// Select lp_item_view row, if there is no rows on lp__item_view we must insert first one.
-    $sql = "select id,start_time from lp_item_view where lp_view_id=" . $lp_view_id. " and lp_item_id=" .       $lecture_id;
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-
-	if (mysql_num_rows($rs)>0)
-	{
-		// There is a row, update it
-		// Time on suspend_data for video model courses
-		$lp_item_view_id = $row["id"];
-		$sql = "update lp_item_view set start_time=unix_timestamp(CURRENT_TIMESTAMP()), status='".$status."',total_time=" .$time. ",suspend_data=" .$time. ",score=" .$score. " where id=" . $lp_item_view_id;
-		$rs = mysql_query($sql,$conn);		
-	}
-	else
-	{
- 		// No row. Insert first one
-		$sql = "insert into lp_item_view (lp_item_id, lp_view_id, view_count, start_time, status,score,suspend_data,total_time) values (".$lecture_id.",". $lp_view_id .",1,unix_timestamp(CURRENT_TIMESTAMP()),'".$status."',".$score."," .$time .",".$time .")";		
-       	 $rs = mysql_query($sql,$conn);		
-	}
-  return True;
 }
 
 
@@ -480,106 +505,108 @@ public function getSupportedContents($course_id){
 	  Course_content returns only values of available tools
     */
     	    
-	global $conn;
-   	global $db_prefix;
-	global $user_id;
-	global $db_videomodel;
-	$course_content = array();
-	
-	// first, we login.
-	$login = self::loginCourse($course_id);
-    // We are going to discrimine between "normal courses" html,js,flash... and new video model courses
-    // so, only will return the sco tool if the course has new video model sco's
-    // Need to take care of the real course code, we delete all string after first five digits.
-    $course_code = substr($course_id,0,5);
-    // If course_id is not well used at plattform this is not going to work properly.
-    // To prevent errors using two databases on the same server there is a parameter 
-    // to mysql_connect to force the creation of a new link.
-    $sql = "select count(identificadorFD) as sco from cursos where identificadorFD=" . $course_code;
-    mysql_select_db($db_videomodel);
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-	if ($row["sco"]>0) 
-	{
-	    // We have SCO's
-		$course_content[] = 0;
-	}
+    global $conn;
+    global $db_prefix;
+    global $user_id;
+    global $db_videomodel;
+    $course_content = array();
 
-	// Exams. Is a quiz that was inserted on lp_item. Normaly with visibility=0 on quiz tool.
-	$sql = "select count(id) as quiz from lp_item where item_type='quiz'";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-	if ($row["quiz"]>0)
-	{
-		$course_content[] = 1;
-	}
-	
-	// Videos... Always active, at this moment.
-	$course_content[] = 3;
+    if (IsUserAllowed($course_id))
+    {
+      // first, we login.
+      $login = self::loginCourse($course_id);
+      // We are going to discrimine between "normal courses" html,js,flash... and new video model courses
+      // so, only will return the sco tool if the course has new video model sco's
+      // Need to take care of the real course code, we delete all string after first five digits.
+      $course_code = substr($course_id,0,5);
+      // If course_id is not well used at plattform this is not going to work properly.
+      // To prevent errors using two databases on the same server there is a parameter 
+      // to mysql_connect to force the creation of a new link.
+      $sql = "select count(identificadorFD) as sco from cursos where identificadorFD=" . $course_code;
+      mysql_select_db($db_videomodel);
+      $rs = mysql_query($sql,$conn);
+      $row = mysql_fetch_array($rs);
+      if ($row["sco"]>0) 
+      {
+	  // We have SCO's
+	      $course_content[] = 0;
+      }
 
-	// Other tools. Look for visibility status on course.
-	$sql = "select name from tool where visibility=1 and admin=0 order by id";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		switch ($row["name"])
-		{
-			case "quiz":
-				$course_content[] = 2;
-				break;
-			case "link":
-				$course_content[] = 4;
-				break;
-			case "document":
-				$course_content[] = 5;
-				break;
-			case "Podcast":
-				$course_content[] = 6;
-				break;
-			case "Dmail":
-				// $course_content[] = 7;
-				// Not implemented on first version
-				break;
-			case "forum":
-				$course_content[] = 8;
-				break;
-			case "announcement":
-				$course_content[] = 9;
-				break;
-			case "calendar_event":
-				$course_content[] = 10;
-				break;
-			case "chat":
-				$course_content[] = 11;
-				break;
-			case "survey":
-				$course_content[] = 12;
-				break;
-			case "course_description":
-				$course_content[] = 13;
-				break;
-			case "tracking":
-				$course_content[] = 14;
-				break;
-			// three possible options here. first one is the valid one. Other are older versions.
-			case "Serviciotecnico":
-				$course_content[] = 15;
-				break;
-			case "Servicio tecnico":
-				$course_content[] = 15;
-				break;
-			case "Servicio t&eacute;cnico":
-				$course_content[] = 15;
-				break;
-		}
-	}
+      // Exams. Is a quiz that was inserted on lp_item. Normaly with visibility=0 on quiz tool.
+      $sql = "select count(id) as quiz from lp_item where item_type='quiz'";
+      mysql_select_db($db_prefix.$course_id);
+      $rs = mysql_query($sql,$conn);
+      $row = mysql_fetch_array($rs);
+      if ($row["quiz"]>0)
+      {
+	      $course_content[] = 1;
+      }
+      
+      // Videos... Always active, at this moment.
+      $course_content[] = 3;
 
-	// Progress.
-	// There is no a Progress tool in Dokeos. Always active.
-	$course_content[] = 14;
-	
-     sort($course_content);
+      // Other tools. Look for visibility status on course.
+      $sql = "select name from tool where visibility=1 and admin=0 order by id";
+      mysql_select_db($db_prefix.$course_id);
+      $rs = mysql_query($sql,$conn);
+      while($row = mysql_fetch_array($rs)){
+	      switch ($row["name"])
+	      {
+		      case "quiz":
+			      $course_content[] = 2;
+			      break;
+		      case "link":
+			      $course_content[] = 4;
+			      break;
+		      case "document":
+			      $course_content[] = 5;
+			      break;
+		      case "Podcast":
+			      $course_content[] = 6;
+			      break;
+		      case "Dmail":
+			      // $course_content[] = 7;
+			      // Not implemented on first version
+			      break;
+		      case "forum":
+			      $course_content[] = 8;
+			      break;
+		      case "announcement":
+			      $course_content[] = 9;
+			      break;
+		      case "calendar_event":
+			      $course_content[] = 10;
+			      break;
+		      case "chat":
+			      $course_content[] = 11;
+			      break;
+		      case "survey":
+			      $course_content[] = 12;
+			      break;
+		      case "course_description":
+			      $course_content[] = 13;
+			      break;
+		      case "tracking":
+			      $course_content[] = 14;
+			      break;
+		      // three possible options here. first one is the valid one. Other are older versions.
+		      case "Serviciotecnico":
+			      $course_content[] = 15;
+			      break;
+		      case "Servicio tecnico":
+			      $course_content[] = 15;
+			      break;
+		      case "Servicio t&eacute;cnico":
+			      $course_content[] = 15;
+			      break;
+	      }
+      }
+
+      // Progress.
+      // There is no a Progress tool in Dokeos. Always active.
+      $course_content[] = 14;
+      sort($course_content);
+      }
      return $course_content;
   }
 
@@ -587,22 +614,24 @@ public function getSupportedContents($course_id){
     // Return available tools for a course and app version.
     // No version use at this moment.
     global $conn;
-   	global $db_prefix;
-	global $user_id;
-	global $db_videomodel;
-	$course_content = array();
-	
+    global $db_prefix;
+    global $user_id;
+    global $db_videomodel;
+    $course_content = array();
+    
+    if (IsUserAllowed($course_id))
+      {
 	// first, we login.
 	$login = self::loginCourse($course_id);
-    // We are going to discrimine between "normal courses" html,js,flash... and new video model courses
-    // so, only will return the sco tool if the course has new video model sco's
-    // Need to take care of the real course code, we delete all string after first five digits.
-    $course_code = substr($course_id,0,5);
-    // If course_id is not well used at plattform this is not going to work properly.
-    // To prevent errors using two databases on the same server there is a parameter 
-    // to mysql_connect to force the creation of a new link.
-    $sql = "select count(identificadorFD) as sco from cursos where identificadorFD=" . $course_code;
-    mysql_select_db($db_videomodel);
+	// We are going to discrimine between "normal courses" html,js,flash... and new video model courses
+	// so, only will return the sco tool if the course has new video model sco's
+	// Need to take care of the real course code, we delete all string after first five digits.
+	$course_code = substr($course_id,0,5);
+	// If course_id is not well used at plattform this is not going to work properly.
+	// To prevent errors using two databases on the same server there is a parameter 
+	// to mysql_connect to force the creation of a new link.
+	$sql = "select count(identificadorFD) as sco from cursos where identificadorFD=" . $course_code;
+	mysql_select_db($db_videomodel);
 	$rs = mysql_query($sql,$conn);
 	$row = mysql_fetch_array($rs);
 	if ($row["sco"]>0) 
@@ -622,7 +651,7 @@ public function getSupportedContents($course_id){
 	}
 	
 	// Videos... Always active, at this moment.
-	//$course_content[] = 3;
+	$course_content[] = 3;
 
 	// Other tools. Look for visibility status on course.
 	$sql = "select name from tool where visibility=1 and admin=0 order by id";
@@ -644,7 +673,7 @@ public function getSupportedContents($course_id){
 				$course_content["5"] = 6;
 				break;
 			case "Dmail":
-				 $course_content["7"] = 7;
+				$course_content["7"] = 7;
 				break;
 			case "forum":
 				$course_content["8"] = 8;
@@ -691,14 +720,15 @@ public function getSupportedContents($course_id){
 	// There is no a Progress tool in Dokeos. Always active.
 	$course_content["14"] = 14;
 	ksort($course_content);
+    }
     return $course_content;
  }
  
   public function getCourses (){
 	/*
-	 Select all learner's courses. 
-     A learner is subscribed to a course when we have a row on course_rel_user_fd table and f_finalizacion
-     is not exausted.
+	Select all learner's courses. 
+	A learner is subscribed to a course when we have a row on course_rel_user_fd table and f_finalizacion
+	is not exausted.
 	*/
 	global $user_id;
 	global $conn;
@@ -746,55 +776,58 @@ public function getSupportedContents($course_id){
 	global $user_id;
         global $db_stats_database;
 	$Exams = array();
+	
+	if (IsUserAllowed($course_id))
+	{
+	  $sql = "select id, title, description, type from quiz where random>=10 and id in (select id from quiz_exam)";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
 
-   	$sql = "select id, title, description, type from quiz where random>=10 and id in (select id from quiz_exam)";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
+	      while($row = mysql_fetch_array($rs)){
+		  $Exam = new Quiz();
+		  $Exam->id = $row["id"];
+		  $Exam->title = $row["title"];
+		  $Exam->quizdescription = limpiarcadena(strip_tags($row["description"]));
+		  $Exam->type = $row["type"];
+		  /*
+		      Now we search for the exam score. If there are more than one score we take the last one.
+		      Real score (0-10) is based on this formula: 
+		      (exe_result*10)/exe_weighting
+		  */
+		  $sql2= "select exe_id,exe_result,exe_weighting from track_e_exercices 
+		  where exe_cours_id='".$course_id ."' and exe_user_id=" . $user_id . " 
+		  and exe_exo_id=".$row["id"]. " order by exe_date desc";
+		  mysql_select_db($db_stats_database);
+		  $rs2 = mysql_query($sql2,$conn);
+		  $row2 = mysql_fetch_array($rs2);
+		      if (mysql_num_rows($rs2) > 0 )
+		      {
+			      $Exam->score = round($row2["exe_result"]*10/$row2["exe_weighting"],1);
+		      }
+		      else
+		      {
+			  // without score. Not realized.
+			      $Exam->score = -1;
+		      }
 
-	    while($row = mysql_fetch_array($rs)){
-		$Exam = new Quiz();
-		$Exam->id = $row["id"];
-		$Exam->title = $row["title"];
-		$Exam->quizdescription = limpiarcadena(strip_tags($row["description"]));
-		$Exam->type = $row["type"];
-		/*
-		    Now we search for the exam score. If there are more than one score we take the last one.
-		    Real score (0-10) is based on this formula: 
-		    (exe_result*10)/exe_weighting
-		*/
-		$sql2= "select exe_id,exe_result,exe_weighting from track_e_exercices 
-		where exe_cours_id='".$course_id ."' and exe_user_id=" . $user_id . " 
-		and exe_exo_id=".$row["id"]. " order by exe_date desc";
-		mysql_select_db($db_stats_database);
-		$rs2 = mysql_query($sql2,$conn);
-		$row2 = mysql_fetch_array($rs2);
-		    if (mysql_num_rows($rs2) > 0 )
-		    {
-			    $Exam->score = round($row2["exe_result"]*10/$row2["exe_weighting"],1);
-		    }
-		    else
-		    {
-		         // without score. Not realized.
-			     $Exam->score = -1;
-		    }
+		  // Now look for MAX exam attempt
+		  $sql3 = "select intentos from quiz_exam where id=". $row["id"];
+		  mysql_select_db($db_prefix.$course_id);
+		  $rs3 = mysql_query($sql3,$conn);
+		  $row3 = mysql_fetch_array($rs3);
+		  $Exam->max_intentos = $row3["intentos"];
 
-		// Now look for MAX exam attempt
-		$sql3 = "select intentos from quiz_exam where id=". $row["id"];
-		mysql_select_db($db_prefix.$course_id);
-		$rs3 = mysql_query($sql3,$conn);
-		$row3 = mysql_fetch_array($rs3);
-		$Exam->max_intentos = $row3["intentos"];
+		  // Count all attempt
+		  $sql4 = "select count(exe_id) as total from track_e_exercices where exe_cours_id='".$course_id ."' and exe_user_id=" . $user_id . " 
+		  and exe_exo_id=".$row["id"];
+		  mysql_select_db($db_stats_database);
+		  $rs4 = mysql_query($sql4,$conn);
+		  $row4 = mysql_fetch_array($rs4);
+		  $Exam->num_intentos = $row4["total"];
 
-		// Count all attempt
-		$sql4 = "select count(exe_id) as total from track_e_exercices where exe_cours_id='".$course_id ."' and exe_user_id=" . $user_id . " 
-		and exe_exo_id=".$row["id"];
-		mysql_select_db($db_stats_database);
-		$rs4 = mysql_query($sql4,$conn);
-		$row4 = mysql_fetch_array($rs4);
-		$Exam->num_intentos = $row4["total"];
-
-		$Exams[] = $Exam;
-	    }
+		  $Exams[] = $Exam;
+	      }
+	}
 	return $Exams;
   }
 
@@ -808,39 +841,42 @@ public function getSupportedContents($course_id){
         global $db_stats_database;
 	$Exercises = array();
 
-	$sql = "select id, title, description, type from quiz where active=1 and type<>6 and random=0";
-	// Type 6 not implemented on App.
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$Exercise = new Quiz();
-		$Exercise->id = $row["id"];
-		$Exercise->title = $row["title"];
-		$Exercise->quizdescription = limpiarcadena(strip_tags($row["description"]));
-		$Exercise->type = $row["type"];
-        /*
-		    Now we search for the quiz score. If there are more than one score we take the last one.
-		    Real score (0-10) is based on this formula: 
-		    (exe_result*10)/exe_weighting
-		*/
-		$sql2= "select exe_id,exe_result,exe_weighting from track_e_exercices 
-		where exe_cours_id='".$course_id ."' and exe_user_id=" . $user_id . " 
-		and exe_exo_id=".$row["id"]. " order by exe_id desc";
-		mysql_select_db($db_stats_database);
-		$rs2 = mysql_query($sql2,$conn);
-		$row2 = mysql_fetch_array($rs2);
-            if (mysql_num_rows($rs2) > 0 )
-		    {
-			    $Exercise->score = round($row2["exe_result"]*10/$row2["exe_weighting"],1);
-		    }
-		    else
-		    {
-        		// without score. Not realized.
-			    $Exercise->score = -1;
-		    }
-		$Exercises[] = $Exercise;
-        }
-	return $Exercises;
+	if (IsUserAllowed($course_id))
+	{
+	  $sql = "select id, title, description, type from quiz where active=1 and type<>6 and random=0";
+	  // Type 6 not implemented on App.
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $Exercise = new Quiz();
+		  $Exercise->id = $row["id"];
+		  $Exercise->title = $row["title"];
+		  $Exercise->quizdescription = limpiarcadena(strip_tags($row["description"]));
+		  $Exercise->type = $row["type"];
+	  /*
+		      Now we search for the quiz score. If there are more than one score we take the last one.
+		      Real score (0-10) is based on this formula: 
+		      (exe_result*10)/exe_weighting
+		  */
+		  $sql2= "select exe_id,exe_result,exe_weighting from track_e_exercices 
+		  where exe_cours_id='".$course_id ."' and exe_user_id=" . $user_id . " 
+		  and exe_exo_id=".$row["id"]. " order by exe_id desc";
+		  mysql_select_db($db_stats_database);
+		  $rs2 = mysql_query($sql2,$conn);
+		  $row2 = mysql_fetch_array($rs2);
+	      if (mysql_num_rows($rs2) > 0 )
+		      {
+			      $Exercise->score = round($row2["exe_result"]*10/$row2["exe_weighting"],1);
+		      }
+		      else
+		      {
+			  // without score. Not realized.
+			      $Exercise->score = -1;
+		      }
+		  $Exercises[] = $Exercise;
+	  }
+      }
+      return $Exercises;
     }
 
   public function getQuestions($course_id, $quiz_id){
@@ -850,78 +886,87 @@ public function getSupportedContents($course_id){
 	global $db_prefix;
 	$Questions = array();
 
-	$sql = "select qq.id,qq.question,qq.description,qq.ponderation,qq.position,qq.type,qq.picture
-	from quiz q,quiz_question qq,quiz_rel_question qrq  
-	where qrq.question_id = qq.id and qrq.exercice_id= q.id and q.id=". $quiz_id ." ORDER BY RAND() LIMIT 10";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$Question = new Question();
-		$Question->id = $row["id"];
-        $Question->question = limpiarcadena(strip_tags($row["question"]));
-        $Question->questiondescription = limpiarcadena(strip_tags($row["description"]));
-		$Question->ponderation = $row["ponderation"];
-		$Question->position = $row["position"];
-		$Question->type = $row["type"];
-		$Question->picture = $row["picture"];
-		$Questions[] = $Question;
-	 }
+	if (IsUserAllowed($course_id))
+	{
+	  $sql = "select qq.id,qq.question,qq.description,qq.ponderation,qq.position,qq.type,qq.picture
+	  from quiz q,quiz_question qq,quiz_rel_question qrq  
+	  where qrq.question_id = qq.id and qrq.exercice_id= q.id and q.id=". $quiz_id ." ORDER BY RAND() LIMIT 10";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $Question = new Question();
+		  $Question->id = $row["id"];
+	  $Question->question = limpiarcadena(strip_tags($row["question"]));
+	  $Question->questiondescription = limpiarcadena(strip_tags($row["description"]));
+		  $Question->ponderation = $row["ponderation"];
+		  $Question->position = $row["position"];
+		  $Question->type = $row["type"];
+		  $Question->picture = $row["picture"];
+		  $Questions[] = $Question;
+	  }
+	}
 	return $Questions;
   }
 
-	public function getQuestionsExercices($course_id, $quiz_id){
+  public function getQuestionsExercices($course_id, $quiz_id){
     
-    // Get all questions for an Exercice
-    global $conn;
-	global $db_prefix;
-	$Questions = array();
+      // Get all questions for an Exercice
+      global $conn;
+      global $db_prefix;
+      $Questions = array();
 
-	$sql = "select qq.id,qq.question,qq.description,qq.ponderation,qq.position,qq.type,qq.picture from quiz q,quiz_question qq,quiz_rel_question qrq where qrq.question_id = qq.id and qrq.exercice_id= q.id and q.id=". $quiz_id ." and qq.type<>6 ORDER BY q.id";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$Question = new Question();
-		$Question->id = $row["id"];
-		$Question->question = limpiarcadena(strip_tags($row["question"]));
-		$Question->questiondescription = limpiarcadena($row["description"]);
-		$Question->ponderation = $row["ponderation"];
-		$Question->position = $row["position"];
-		$Question->type = $row["type"];
-		$Question->picture = $row["picture"];
-		$Questions[] = $Question;
-	 }
-	return $Questions;
+	if (IsUserAllowed($course_id))
+	{
+	  $sql = "select qq.id,qq.question,qq.description,qq.ponderation,qq.position,qq.type,qq.picture from quiz q,quiz_question qq,quiz_rel_question qrq where qrq.question_id = qq.id and qrq.exercice_id= q.id and q.id=". $quiz_id ." and qq.type<>6 ORDER BY q.id";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $Question = new Question();
+		  $Question->id = $row["id"];
+		  $Question->question = limpiarcadena(strip_tags($row["question"]));
+		  $Question->questiondescription = limpiarcadena($row["description"]);
+		  $Question->ponderation = $row["ponderation"];
+		  $Question->position = $row["position"];
+		  $Question->type = $row["type"];
+		  $Question->picture = $row["picture"];
+		  $Questions[] = $Question;
+	    }
+	}
+      return $Questions;
   }
 
   public function getAnswers($course_id, $quiz_id){
 
-    // Get answers for a quiz or Exam.
+	// Get answers for a quiz or Exam.
 	global $conn;
 	global $db_prefix;
 	$Answers = array();
 
-	// First of all we get the questions
-	$Questions = self::getQuestions($course_id, $quiz_id);
-	foreach ($Questions as $Question)
+	if (IsUserAllowed($course_id))
 	{
-		// Now for each question...
-		$tmpAnswers = array();
-		$sql = "select qa.*
-		from quiz q,quiz_question qq,quiz_rel_question qrq, quiz_answer qa
-		where qrq.question_id = qq.id and qrq.exercice_id=q.id and qa.question_id=qq.id and qq.id=". $Question->id ." order by qa.question_id, qa.position";
-		mysql_select_db($db_prefix.$course_id);
-		$rs = mysql_query($sql,$conn);
-		while($row = mysql_fetch_array($rs)){
-			$tmp = new Answer();	
-			$tmp->id = $row["id"];
-			$tmp->answer = limpiarcadena(strip_tags($row["answer"]));
-			$tmp->comment = '';
-			$tmp->correct = $row["correct"];
-			$tmp->position = $row["position"];
-			$tmp->ponderation = $row["ponderation"];
-			$tmpAnswers[]= $tmp;
-		 }
-		$Answers[] = $tmpAnswers;
+	  // First of all we get the questions
+	  $Questions = self::getQuestions($course_id, $quiz_id);
+	  foreach ($Questions as $Question)
+	  {
+		  // Now for each question...
+		  $tmpAnswers = array();
+		  $sql = "select qa.*
+		  from quiz q,quiz_question qq,quiz_rel_question qrq, quiz_answer qa
+		  where qrq.question_id = qq.id and qrq.exercice_id=q.id and qa.question_id=qq.id and qq.id=". $Question->id ." order by qa.question_id, qa.position";
+		  mysql_select_db($db_prefix.$course_id);
+		  $rs = mysql_query($sql,$conn);
+		  while($row = mysql_fetch_array($rs)){
+			  $tmp = new Answer();	
+			  $tmp->id = $row["id"];
+			  $tmp->answer = limpiarcadena(strip_tags($row["answer"]));
+			  $tmp->comment = '';
+			  $tmp->correct = $row["correct"];
+			  $tmp->position = $row["position"];
+			  $tmp->ponderation = $row["ponderation"];
+			  $tmpAnswers[]= $tmp;
+		  }
+		  $Answers[] = $tmpAnswers;
+	  }
 	}
 	return $Answers;
   }
@@ -932,155 +977,177 @@ public function getSupportedContents($course_id){
 	global $conn;
 	global $db_prefix;
 	$CD = array();
-	$sql = "select id,title,content from course_description order by id";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$Coursedescription = new CourseDescription();
-		$Coursedescription->id = $row["id"];
-		
-		/*
-        ################### Revisar
-	    estaba repetido y no debería llevar HTML
-		$Coursedescription->title = "<div style='font-family:Helvetica; font-size:11pt; background-color:#FFFFFF; border: 1px solid #006699; padding: 5px; border-radius: 10px;'>".limpiarcadena(strip_tags($row["title"]))."</div>";
-		$Coursedescription->content = "<div style='font-family:Helvetica; font-size:10pt; background-color:#FFFFFF; border: 1px solid #006699; padding: 5px; border-radius: 10px;'>".limpiarcadena(strip_tags($row["content"]))."</div>";*/
-		$Coursedescription->title = "<div style='font-family:Helvetica; font-size:11pt; background-color:#FFFFFF; border: 1px solid #006699; padding: 5px; border-radius: 10px;'>".(strip_tags($row["title"]))."</div>";
-		$Coursedescription->content = "<div style='font-family:Helvetica; font-size:10pt; background-color:#FFFFFF; border: 1px solid #006699; padding: 5px; border-radius: 10px;'>".$row["content"]."</div>";
-		$CD[] = $Coursedescription;
-	 }
+
+	if (IsUserAllowed($course_id))
+	{
+	  $sql = "select id,title,content from course_description order by id";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $Coursedescription = new CourseDescription();
+		  $Coursedescription->id = $row["id"];
+		  
+		  /*
+	  ################### Revisar
+	      estaba repetido y no debería llevar HTML
+		  $Coursedescription->title = "<div style='font-family:Helvetica; font-size:11pt; background-color:#FFFFFF; border: 1px solid #006699; padding: 5px; border-radius: 10px;'>".limpiarcadena(strip_tags($row["title"]))."</div>";
+		  $Coursedescription->content = "<div style='font-family:Helvetica; font-size:10pt; background-color:#FFFFFF; border: 1px solid #006699; padding: 5px; border-radius: 10px;'>".limpiarcadena(strip_tags($row["content"]))."</div>";*/
+		  $Coursedescription->title = "<div style='font-family:Helvetica; font-size:11pt; background-color:#FFFFFF; border: 1px solid #006699; padding: 5px; border-radius: 10px;'>".(strip_tags($row["title"]))."</div>";
+		  $Coursedescription->content = "<div style='font-family:Helvetica; font-size:10pt; background-color:#FFFFFF; border: 1px solid #006699; padding: 5px; border-radius: 10px;'>".$row["content"]."</div>";
+		  $CD[] = $Coursedescription;
+	  }
+	}
 	return $CD;
   }
 
   public function getLinkCategories($course_id){
 
     // Get link categories
-	global $conn;
-	global $db_prefix;
-	$LinkCategories = array();
-	$sql = "select id,category_title, description,display_order from link_category order by display_order";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	
-	//Main Categorie does not exist in Dokeos. So we create it here.
-	$LinkCategorie = new LinkCategory();
-	$LinkCategorie->id = 0;
-	$LinkCategorie->title = 'General';
-	$LinkCategorie->categorydescription = 'Categoría principal';
-	$LinkCategories[] = $LinkCategorie;
+    global $conn;
+    global $db_prefix;
+    $LinkCategories = array();
 
-	while($row = mysql_fetch_array($rs)){	
-		$LinkCategorie = new LinkCategory();	
-		$LinkCategorie->id = $row["id"];
-		$LinkCategorie->title = $row["category_title"];
-		$LinkCategorie->categorydescription = $row["description"];
-		$LinkCategories[] = $LinkCategorie;
-	 }
+    if (IsUserAllowed($course_id))
+    {
+      $sql = "select id,category_title, description,display_order from link_category order by display_order";
+      mysql_select_db($db_prefix.$course_id);
+      $rs = mysql_query($sql,$conn);
+      
+      //Main Categorie does not exist in Dokeos. So we create it here.
+      $LinkCategorie = new LinkCategory();
+      $LinkCategorie->id = 0;
+      $LinkCategorie->title = 'General';
+      $LinkCategorie->categorydescription = 'Categoría principal';
+      $LinkCategories[] = $LinkCategorie;
 
-	return $LinkCategories;
+      while($row = mysql_fetch_array($rs)){	
+	      $LinkCategorie = new LinkCategory();	
+	      $LinkCategorie->id = $row["id"];
+	      $LinkCategorie->title = $row["category_title"];
+	      $LinkCategorie->categorydescription = $row["description"];
+	      $LinkCategories[] = $LinkCategorie;
+      }
+    }
+    return $LinkCategories;
 
   }
 
   public function getLinks($course_id){
 
     // Get links from a course, first of all look for categories.
-	$LinkCategories = self::getLinkCategories($course_id);
-	global $conn;
-	global $db_prefix;
-	$recolector = array();
-	foreach ($LinkCategories as $category)
-	{
-		$Links =  array() ;
-		$sql = "select id,title,url,description from link where category_id=" . $category->id . " order by display_order";
-		mysql_select_db($db_prefix.$course_id);
-		$rs = mysql_query($sql,$conn);
-		while($row = mysql_fetch_array($rs)){
-			$Link = new Link();
-			$Link->id = $row["id"];
-			$Link->title = $row["title"];
-			$Link->url = $row["url"];
-			$Link->linkdescription = $row["description"];
-			$Links[] = $Link;
-		 }
-		$recolector[] = $Links;
-	}
-	return $recolector;
+    $LinkCategories = self::getLinkCategories($course_id);
+    global $conn;
+    global $db_prefix;
+    $recolector = array();
+
+    if (IsUserAllowed($course_id))
+    {
+      foreach ($LinkCategories as $category)
+      {
+	      $Links =  array() ;
+	      $sql = "select id,title,url,description from link where category_id=" . $category->id . " order by display_order";
+	      mysql_select_db($db_prefix.$course_id);
+	      $rs = mysql_query($sql,$conn);
+	      while($row = mysql_fetch_array($rs)){
+		      $Link = new Link();
+		      $Link->id = $row["id"];
+		      $Link->title = $row["title"];
+		      $Link->url = $row["url"];
+		      $Link->linkdescription = $row["description"];
+		      $Links[] = $Link;
+	      }
+	      $recolector[] = $Links;
+      }
+    }
+    return $recolector;
   }
 
   public function getChatItems($course_id, $timestamp){
     
     // Search for stored chat conversations.
     global $conn;
-	global $db_prefix;
-	global $db_main_database;
-	$Chat = array();
-	$sql = "select leafvalue from fchat where server='" . $course_id . "' and subgroup='ch_" . $course_id ."' and timestamp>=" . $timestamp. " order by timestamp desc limit 100";
-	mysql_select_db($db_main_database);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-	    // Search chat actions. We look for "leafvalue".
-	    // leafvalue contains plain-text string with \t, we can split it.
-		$datos =  explode("\t", $row["leafvalue"]);
-		if ( count($datos)==5)
-		{
-		    // We are going to get values only if result count it's 5. 
-		    // Connection, exit and message.
-			$Chatline = new ChatItem();
-			$Chatline->timestamp = $datos[1];
-			$Chatline->who = $datos[2];
-			$Chatline->action = $datos[3];
-			$Chatline->message = utf8_decode($datos[4]);
-			if ( strpos($datos[4], 'se une a'))
-			{
-			    // Chat connection
-				$Chatline->action = 'in';
-				$Chatline->message = '';
-			}
-			else
-			{
-				if ( strpos($datos[4], 'se ha desconectado'))
-				{
-				    // Chat exit
-					$Chatline->action = 'out';
-					$Chatline->message = '';
-				}
-			}
-			
-			$Chat[] = $Chatline;
-		}
-	 }
+    global $db_prefix;
+    global $db_main_database;
+    $Chat = array();
+
+	if (IsUserAllowed($course_id))
+	{
+	  $sql = "select leafvalue from fchat where server='" . $course_id . "' and subgroup='ch_" . $course_id ."' and timestamp>=" . $timestamp. " order by timestamp desc limit 100";
+	  mysql_select_db($db_main_database);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+	      // Search chat actions. We look for "leafvalue".
+	      // leafvalue contains plain-text string with \t, we can split it.
+		  $datos =  explode("\t", $row["leafvalue"]);
+		  if ( count($datos)==5)
+		  {
+		      // We are going to get values only if result count it's 5. 
+		      // Connection, exit and message.
+			  $Chatline = new ChatItem();
+			  $Chatline->timestamp = $datos[1];
+			  $Chatline->who = $datos[2];
+			  $Chatline->action = $datos[3];
+			  $Chatline->message = utf8_decode($datos[4]);
+			  if ( strpos($datos[4], 'se une a'))
+			  {
+			      // Chat connection
+				  $Chatline->action = 'in';
+				  $Chatline->message = '';
+			  }
+			  else
+			  {
+				  if ( strpos($datos[4], 'se ha desconectado'))
+				  {
+				      // Chat exit
+					  $Chatline->action = 'out';
+					  $Chatline->message = '';
+				  }
+			  }
+			  
+			  $Chat[] = $Chatline;
+		  }
+	  }
+	}
 	return $Chat;
    }
 
   public function newChatItem($course_id, $who, $type, $msg){
   
     // Insert a new message on the chat
-	global $conn;
-	global $db_prefix;
-	global $db_main_database;
+    global $conn;
+    global $db_prefix;
+    global $db_main_database;
     mysql_select_db($db_main_database);
     
-	// Get last item on chat table
-	$sql = "select leafvalue from fchat where server='" . $course_id . "' and leaf='lastmsgid'";
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-	    if ($row[0]==0)
-	    {
-		    // Nothing in the chat, first connection.
-		    $lastmsgid = 1;
-		    $sql = "insert into fchat values ('".$course_id."','channelid-to-msg','ch_".$course_id."','lastmsgid','" . $lastmsgid . "','" . time() ."')";
-		    mysql_query($sql,$conn);
-	    }
-	    else
-	    {
-		    // insert the massage
-		    $lastmsgid = $row[0] + 1;
-		    $sql = "insert into fchat values ('".$course_id."','channelid-to-msg','ch_" . $course_id ."','" . $lastmsgid . "','\n" . $lastmsgid ."\t".time()."\t".$who."\t".$type."\t".$msg."','".time()."')";
-		    mysql_query($sql,$conn);
-		    // Update lastmsgid
-		    $sql = "update fchat set leafvalue='".$lastmsgid."' where server='".$course_id."' and leaf='lastmsgid' and subgroup='ch_".$course_id."'";
-        	mysql_query($sql,$conn);
-	    }
-    return True;
+	if (IsUserAllowed($course_id))
+	{
+	  // Get last item on chat table
+	  $sql = "select leafvalue from fchat where server='" . $course_id . "' and leaf='lastmsgid'";
+	  $rs = mysql_query($sql,$conn);
+	  $row = mysql_fetch_array($rs);
+	      if ($row[0]==0)
+	      {
+		      // Nothing in the chat, first connection.
+		      $lastmsgid = 1;
+		      $sql = "insert into fchat values ('".$course_id."','channelid-to-msg','ch_".$course_id."','lastmsgid','" . $lastmsgid . "','" . time() ."')";
+		      mysql_query($sql,$conn);
+	      }
+	      else
+	      {
+		      // insert the massage
+		      $lastmsgid = $row[0] + 1;
+		      $sql = "insert into fchat values ('".$course_id."','channelid-to-msg','ch_" . $course_id ."','" . $lastmsgid . "','\n" . $lastmsgid ."\t".time()."\t".$who."\t".$type."\t".$msg."','".time()."')";
+		      mysql_query($sql,$conn);
+		      // Update lastmsgid
+		      $sql = "update fchat set leafvalue='".$lastmsgid."' where server='".$course_id."' and leaf='lastmsgid' and subgroup='ch_".$course_id."'";
+		  mysql_query($sql,$conn);
+	      }
+	  return True;
+	}
+	else
+	{
+	  return False;
+	}
   }
   
   public function getCalendarItems($course_id){
@@ -1089,48 +1156,55 @@ public function getSupportedContents($course_id){
 	global $conn;
 	global $db_prefix;
 	$Calendar = array();
-	$sql = "select id,title,content,start_date,end_date from calendar_event order by start_date";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$event = new CalendarItem();
-		$event->id = $row["id"];
-		$event->title = $row["title"];
-		$event->content = $row["content"];
-		$event->startdate = strtotime($row["start_date"]);
-		$event->enddate = strtotime($row["end_date"]);
-		$Calendar[] = $event;
-	 }
+   
+	if (IsUserAllowed($course_id))
+	{
+	  $sql = "select id,title,content,start_date,end_date from calendar_event order by start_date";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $event = new CalendarItem();
+		  $event->id = $row["id"];
+		  $event->title = $row["title"];
+		  $event->content = $row["content"];
+		  $event->startdate = strtotime($row["start_date"]);
+		  $event->enddate = strtotime($row["end_date"]);
+		  $Calendar[] = $event;
+	  }
+	}
 	return $Calendar;
 
   }
   
   public function getForumCategorys($course_id){
-
     // Get course forum categories
     // Each categorie has an array with the forums
 	global $conn;
 	global $db_prefix;
 	$categories = array();
-	$sql = "select cat_id,cat_title from forum_category order by cat_order";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$category = new ForumCategory();
-		$category->id = $row["cat_id"];
-		$category->title = $row["cat_title"];	
-		$sql = "select forum_id,forum_title from forum_forum where forum_category=" . $category->id;
-		$rs2 = mysql_query($sql,$conn);
-		$forums = array();
-		while($row2 = mysql_fetch_array($rs2)){
-			$forum = new ForumForum();
-			$forum->id = $row2["forum_id"];
-			$forum->title = $row2["forum_title"];
-			$forums[] = $forum;
-		}
-		$category->forums =  $forums;
-		$categories[] = $category;
-	 }
+
+	if (IsUserAllowed($course_id))
+	{
+	  $sql = "select cat_id,cat_title from forum_category order by cat_order";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $category = new ForumCategory();
+		  $category->id = $row["cat_id"];
+		  $category->title = $row["cat_title"];	
+		  $sql = "select forum_id,forum_title from forum_forum where forum_category=" . $category->id;
+		  $rs2 = mysql_query($sql,$conn);
+		  $forums = array();
+		  while($row2 = mysql_fetch_array($rs2)){
+			  $forum = new ForumForum();
+			  $forum->id = $row2["forum_id"];
+			  $forum->title = $row2["forum_title"];
+			  $forums[] = $forum;
+		  }
+		  $category->forums =  $forums;
+		  $categories[] = $category;
+	  }
+	}
 	return $categories;
   }
   
@@ -1140,26 +1214,33 @@ public function getSupportedContents($course_id){
 	global $conn;
 	global $db_prefix;
 	$threads = array();
-	$sql = "select thread_id,thread_title,thread_date from forum_thread where forum_id=". $forum_id. " order by thread_date desc";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$thread = new ForumThread();
-		$thread->id = $row["thread_id"];
-		$thread->title = $row["thread_title"];
-		$thread->date = strtotime($row["thread_date"]);
-		$threads[] = $thread;
-	 }
+
+	if (IsUserAllowed($course_id))
+	{
+	  $sql = "select thread_id,thread_title,thread_date from forum_thread where forum_id=". $forum_id. " order by thread_date desc";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $thread = new ForumThread();
+		  $thread->id = $row["thread_id"];
+		  $thread->title = $row["thread_title"];
+		  $thread->date = strtotime($row["thread_date"]);
+		  $threads[] = $thread;
+	  }
+	}
 	return $threads;
   }
   
   public function getForumPosts($course_id, $thread_id){
 
     // Get post of the expecified thread and search for poster fistname and lastname.
-    global $conn;
-	global $db_prefix;
-	global $db_main_database;
-	$posts = array();
+      global $conn;
+      global $db_prefix;
+      global $db_main_database;
+      $posts = array();
+
+      if (IsUserAllowed($course_id))
+      {
 	$sql = "select post_id, post_title, post_text,post_date, poster_id from forum_post where thread_id=". $thread_id. " order by post_parent_id";
 	mysql_select_db($db_prefix.$course_id);
 	$rs = mysql_query($sql,$conn);
@@ -1176,17 +1257,20 @@ public function getSupportedContents($course_id){
 		$post->poster_name = $row2["firstname"] . ' '. $row2["lastname"];
 		$post->date = strtotime($row["post_date"]);
 		$posts[] = $post;
-	 }
-	return $posts;
+	  }
+      }
+      return $posts;
   }
   
   public function setForumThread($course_id, $forum_id, $thread_title, $post_title, $post_text){
 
-    // Insert a new thread... new thread with one post.
-	global $user_id;
-	global $conn;	
-	global $db_prefix;
-	global $db_main_database;
+      // Insert a new thread... new thread with one post.
+      global $user_id;
+      global $conn;	
+      global $db_prefix;
+      global $db_main_database;
+      if (IsUserAllowed($course_id))
+      {
 	$sql = "insert into forum_thread (thread_title,forum_id,thread_replies,thread_poster_id,thread_poster_name,thread_views,thread_last_post,thread_date,thread_sticky,locked)
 	values ('" . $thread_title . "'," . $forum_id . ",0," .  $user_id . ",'',0,0,now(),0,0)";
 	mysql_select_db($db_prefix.$course_id);
@@ -1197,7 +1281,12 @@ public function getSupportedContents($course_id){
 	$row = mysql_fetch_array($rs);
 	$thread_id = $row["thread_id"];
 	// Finally insert new post, calling setForumPost.
-    return self::setForumPost($course_id, $thread_id, $post_title, $post_text);
+	return self::setForumPost($course_id, $thread_id, $post_title, $post_text);
+      }
+      else
+      {
+	return False;
+      }
   }
   
   public function setForumPost($course_id, $thread_id, $post_title, $post_text){
@@ -1207,29 +1296,36 @@ public function getSupportedContents($course_id){
 	global $conn;	
 	global $db_prefix;
 	global $db_main_database;
-	// First of all we need the forum_id
-	$sql = "select forum_id from forum_thread where thread_id=" . $thread_id;
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-	$forum_id = $row["forum_id"];
-	// Now we need last post
-	$sql = "select max(post_id) as post_id from forum_post where forum_id=" . $forum_id ." and thread_id=" . $thread_id;
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-	//It possible that there is no post. Perhaps we came from setForumThread.
-	if(isset($row["post_id"]))
+	if (IsUserAllowed($course_id))
 	{
-	    $post_parent_id = $row["post_id"];
+	  // First of all we need the forum_id
+	  $sql = "select forum_id from forum_thread where thread_id=" . $thread_id;
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  $row = mysql_fetch_array($rs);
+	  $forum_id = $row["forum_id"];
+	  // Now we need last post
+	  $sql = "select max(post_id) as post_id from forum_post where forum_id=" . $forum_id ." and thread_id=" . $thread_id;
+	  $rs = mysql_query($sql,$conn);
+	  $row = mysql_fetch_array($rs);
+	  //It possible that there is no post. Perhaps we came from setForumThread.
+	  if(isset($row["post_id"]))
+	  {
+	      $post_parent_id = $row["post_id"];
+	  }
+	  else
+	  {
+	      // No parent. first post.
+	      $post_parent_id = 0;
+	  }
+	  // And finally insert new post
+	  $sql = "insert into forum_post(post_title, post_text, thread_id, forum_id, poster_id, poster_name, post_date, post_notification, post_parent_id,visible) values ('". $post_title. "','". $post_text. "'," . $thread_id . "," . $forum_id . "," . $user_id . ",'',now(),0,". $post_parent_id .",1)" ;
+	  return mysql_query($sql,$conn);
 	}
 	else
 	{
-	    // No parent. first post.
-	    $post_parent_id = 0;
+	  return False;
 	}
-	// And finally insert new post
-	$sql = "insert into forum_post(post_title, post_text, thread_id, forum_id, poster_id, poster_name, post_date, post_notification, post_parent_id,visible) values ('". $post_title. "','". $post_text. "'," . $thread_id . "," . $forum_id . "," . $user_id . ",'',now(),0,". $post_parent_id .",1)" ;
-	return mysql_query($sql,$conn);
   }
   
   public function getAnnouncements($course_id){
@@ -1238,16 +1334,19 @@ public function getSupportedContents($course_id){
 	global $conn;
 	global $db_prefix;
 	$announcements = array();
-	$sql = "select id,title,end_date from announcement order by display_order";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$announcement = new Announcement();
-		$announcement->id = $row["id"];
-		$announcement->title = $row["title"];
-		$announcement->date = strtotime($row["end_date"]);
-		$announcements[] = $announcement;
-	 }
+	if (IsUserAllowed($course_id))
+	{
+	  $sql = "select id,title,end_date from announcement order by display_order";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $announcement = new Announcement();
+		  $announcement->id = $row["id"];
+		  $announcement->title = $row["title"];
+		  $announcement->date = strtotime($row["end_date"]);
+		  $announcements[] = $announcement;
+	  }
+	}
 	return $announcements;
   }
 
@@ -1257,16 +1356,19 @@ public function getSupportedContents($course_id){
 	global $conn;
 	global $db_prefix;
 	$announcements = array();
-	$sql = "select title,content,end_date from announcement where id=" . $id ;
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$announcement = new DetailAnnouncement();
-		$announcement->title = $row["title"];
-		$announcement->content = strip_tags(limpiarcadena($row["content"]));
-		$announcement->date = strtotime($row["end_date"]);
-		$announcements[] = $announcement;
-	 }
+	if (IsUserAllowed($course_id))
+	{
+	  $sql = "select title,content,end_date from announcement where id=" . $id ;
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $announcement = new DetailAnnouncement();
+		  $announcement->title = $row["title"];
+		  $announcement->content = strip_tags(limpiarcadena($row["content"]));
+		  $announcement->date = strtotime($row["end_date"]);
+		  $announcements[] = $announcement;
+	  }
+	}
 	return $announcements;
   }
   
@@ -1278,227 +1380,236 @@ public function getSupportedContents($course_id){
 	global $db_main_database;
 	global $user_id;
         global $db_stats_database;
-	// Iinitializing values
-	$diferencia_segundos = 0 ;
-	$primer_acceso = "Sin datos";
-	$ultimo_acceso = "Sin datos";
-	$mensajes_foros= 0;
-	$mensajes_correo= 0;
-	$nota_global= -1;
-	$c= 0;
-	$GradesExamsList = array();
-	$ProgressCourseList= array();
-	$GradesExercisesList= array();
-	// Select connections to the course, ignore connections without logout date
-	$sql = "select unix_timestamp(login_course_date) as id, unix_timestamp(logout_course_date) as od from track_e_course_access where user_id=" . $user_id . " and course_code='" . $course_id . "' and not isnull(logout_course_date) order by login_course_date";
-	mysql_select_db($db_stats_database);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		// Calculating time connected
-		$diferencia = $row["od"] - $row["id"];
-		$diferencia_segundos = $diferencia_segundos + $diferencia;
-		if ( $c==0 )
-		{
-			// First connection
-			$primer_acceso = $row["id"];
-		}
-		else
-		{
-			if ($c == mysql_num_rows($rs)-1)
-			{
-				//Last connection
-				$ultimo_acceso = $row["id"];
-			}
-		}
-		$c=$c+1;
-	}
-	// Get total number of forum's post
-	$sql = "select count(poster_id) as total from forum_post where poster_id=" . $user_id;
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-	$mensajes_foros = $row["total"];
-	// Get total number of Dmail sent
-	$sql = "select count(envia) as total from dmail_main where envia=" . $user_id;
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-	$mensajes_correo = $row["total"];
-    // Global evaluation inserted by the c0urse tutor
-	$sql = "select nota_global from course_rel_user_fd where course_code='".$course_id."' and user_id=". $user_id;
-	mysql_select_db($db_main_database);
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-	if ( (mysql_num_rows($rs)>0) && (is_numeric($row["nota_global"]) ) )
-		{
-	        $nota_global = $row["nota_global"];
-        }
-    else
-        {
-            // Not inserted.
-            $nota_global = -1;
-        }
-	
-
-	// New version !!
-	// Select al Exams from course. In dokeos we consider a exam a quiz that has values on quiz_exams table.
-
-	$Exams = array();
-   	$sql = "select id, title, description, type from quiz where random>=10 and id in (select id from quiz_exam)";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	    while($row = mysql_fetch_array($rs)){
-		$Exam = new GradesExams();
-		$Exam->id = $row["id"];
-		$Exam->title = $row["title"];
-		$Exam->grades = 0;
-		
-		/*
-		    Now we search for the exam score. If there are more than one score we take the last one.
-		    Real score (0-10) is based on this formula: 
-		    (exe_result*10)/exe_weighting
-		*/
-		$sql2= "select exe_id,exe_result,exe_weighting from track_e_exercices 
-		where exe_cours_id='".$course_id ."' and exe_user_id=" . $user_id . " 
-		and exe_exo_id=".$row["id"]. " order by exe_date desc";
-		mysql_select_db($db_stats_database);
-		$rs2 = mysql_query($sql2,$conn);
-		$row2 = mysql_fetch_array($rs2);
-		    if (mysql_num_rows($rs2) > 0 )
-		    {
-			    $Exam->grades = round($row2["exe_result"]*10/$row2["exe_weighting"],1);
-		    }
-		    else
-		    {
-		         // without score. Not realized.
-			     $Exam->grades = -1;
-		    }
-
-		// Count all attempt
-		$sql4 = "select count(exe_id) as total from track_e_exercices where exe_cours_id='".$course_id ."' and exe_user_id=" . $user_id . " 
-		and exe_exo_id=".$row["id"];
-		mysql_select_db($db_stats_database);
-		$rs4 = mysql_query($sql4,$conn);
-		$row4 = mysql_fetch_array($rs4);
-		$Exam->num_intentos = $row4["total"];
-
-		// Now look for MAX exam attempt
-		$sql3 = "select intentos from quiz_exam where id=". $row["id"];
-		mysql_select_db($db_prefix.$course_id);
-		$rs3 = mysql_query($sql3,$conn);
-		$row3 = mysql_fetch_array($rs3);
-		$Exam->max_intentos = $row3["intentos"];
-
-		$GradesExamsList[] = $Exam;
-	    }
-
-	/* Las version without attempt
-	//Get Exams
-	$sql = "select id,title from quiz where active=0 and random=10  and id in (select path from lp_item) order by id";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$GradesExams = new GradesExams();
-		$GradesExams->id = $row["id"];
-		$GradesExams->title = $row["title"];
-		$GradesExams->grades = 0;
-		// For each Exam we need the learner's score
-		$sql = "select exe_exo_id,exe_result,exe_weighting from track_e_exercices where exe_user_id=" . $user_id . " and exe_cours_id='" . $course_id . "' and exe_exo_id=" .$row["id"] . " order by exe_date DESC";
-		mysql_select_db($db_stats_database);
-		$rs2 = mysql_query($sql,$conn);
-		$row2 = mysql_fetch_array($rs2);
-		if ( mysql_num_rows($rs2)>0)
-		{
-
-			$GradesExams->grades = round( ($row2["exe_result"] * 10 )/$row2["exe_weighting"]);
-		}
-	    else
-	    {
-	        //Don't have score.
-	        $GradesExams->grades = -1;
-		}
-		$GradesExamsList[] = $GradesExams;
-	}
-      */
-
-	// Get Exercices
-	$sql = "select id,title from quiz where active=1 and random=0 order by id";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$GradesExercises = new GradesExercises();
-		$GradesExercises->id = $row["id"];
-		$GradesExercises->title = $row["title"];
-		$GradesExercises->attempt = 0;
-		$GradesExercises->grades = -1;
-	    // For each Exercice we need the learner's score and attempts  
-		$sql = "select exe_exo_id,exe_result,exe_weighting from track_e_exercices where exe_user_id=" . $user_id . " and exe_cours_id='" . $course_id . "' and exe_exo_id=" .$GradesExercises->id . " order by exe_date";
-		mysql_select_db($db_stats_database);
-		$rs2 = mysql_query($sql,$conn);
-		while($row2 = mysql_fetch_array($rs2)){
-			/*
-		    Now we search for the Exercice score. If there are more than one score we take the last one.
-		    Real score (0-10) is based on this formula: 
-		    (exe_result*10)/exe_weighting
-		    */
-			$GradesExercises->attempt = $GradesExercises->attempt+ 1;
-			$GradesExercises->grades = round( ($row2["exe_result"] * 10 )/$row2["exe_weighting"]);
-			}
-		$GradesExercisesList[] = $GradesExercises;	
-		}
-	// Get course score
-	$sql = "select i.id, i.title, iv.score, iv.status from lp_item as i, lp_view v, lp_item_view iv where i.item_type='sco' and i.id = iv.lp_item_id and v.user_id=". $user_id ." and v.id=iv.lp_view_id order by i.display_order";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$ProgressCourse = new ProgressCourse();
-		$ProgressCourse->id = $row["id"];
-		$ProgressCourse->title = $row["title"];
-		$ProgressCourse->status = $row["status"];
-		$ProgressCourse->progress = $row["score"];
-		$ProgressCourseList[] = $ProgressCourse;
-	}
-	// Join all data
 	$Progress = new Progress();
-	$Progress->time = $diferencia_segundos;
-	$Progress->msg_forum = $mensajes_foros;
-	$Progress->msg_mail = $mensaje_correo;
-	$Progress->first_access = $primer_acceso;
-	$Progress->last_access = $ultimo_acceso;
-	$Progress->evaluation = $nota_global;
-	$Progress->grades_exams = $GradesExamsList;
-	$Progress->grades_exercises = $GradesExercisesList;
-	$Progress->progress_course = $ProgressCourseList;
-	return $Progress;	
+
+	if (IsUserAllowed($course_id))
+	{
+	  // Iinitializing values
+	  $diferencia_segundos = 0 ;
+	  $primer_acceso = "Sin datos";
+	  $ultimo_acceso = "Sin datos";
+	  $mensajes_foros= 0;
+	  $mensajes_correo= 0;
+	  $nota_global= -1;
+	  $c= 0;
+	  $GradesExamsList = array();
+	  $ProgressCourseList= array();
+	  $GradesExercisesList= array();
+	  // Select connections to the course, ignore connections without logout date
+	  $sql = "select unix_timestamp(login_course_date) as id, unix_timestamp(logout_course_date) as od from track_e_course_access where user_id=" . $user_id . " and course_code='" . $course_id . "' and not isnull(logout_course_date) order by login_course_date";
+	  mysql_select_db($db_stats_database);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  // Calculating time connected
+		  $diferencia = $row["od"] - $row["id"];
+		  $diferencia_segundos = $diferencia_segundos + $diferencia;
+		  if ( $c==0 )
+		  {
+			  // First connection
+			  $primer_acceso = $row["id"];
+		  }
+		  else
+		  {
+			  if ($c == mysql_num_rows($rs)-1)
+			  {
+				  //Last connection
+				  $ultimo_acceso = $row["id"];
+			  }
+		  }
+		  $c=$c+1;
+	  }
+	  // Get total number of forum's post
+	  $sql = "select count(poster_id) as total from forum_post where poster_id=" . $user_id;
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  $row = mysql_fetch_array($rs);
+	  $mensajes_foros = $row["total"];
+	  // Get total number of Dmail sent
+	  $sql = "select count(envia) as total from dmail_main where envia=" . $user_id;
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  $row = mysql_fetch_array($rs);
+	  $mensajes_correo = $row["total"];
+      // Global evaluation inserted by the c0urse tutor
+	  $sql = "select nota_global from course_rel_user_fd where course_code='".$course_id."' and user_id=". $user_id;
+	  mysql_select_db($db_main_database);
+	  $rs = mysql_query($sql,$conn);
+	  $row = mysql_fetch_array($rs);
+	  if ( (mysql_num_rows($rs)>0) && (is_numeric($row["nota_global"]) ) )
+		  {
+		  $nota_global = $row["nota_global"];
+	  }
+      else
+	  {
+	      // Not inserted.
+	      $nota_global = -1;
+	  }
+	  
+
+	  // New version !!
+	  // Select al Exams from course. In dokeos we consider a exam a quiz that has values on quiz_exams table.
+
+	  $Exams = array();
+	  $sql = "select id, title, description, type from quiz where random>=10 and id in (select id from quiz_exam)";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	      while($row = mysql_fetch_array($rs)){
+		  $Exam = new GradesExams();
+		  $Exam->id = $row["id"];
+		  $Exam->title = $row["title"];
+		  $Exam->grades = 0;
+		  
+		  /*
+		      Now we search for the exam score. If there are more than one score we take the last one.
+		      Real score (0-10) is based on this formula: 
+		      (exe_result*10)/exe_weighting
+		  */
+		  $sql2= "select exe_id,exe_result,exe_weighting from track_e_exercices 
+		  where exe_cours_id='".$course_id ."' and exe_user_id=" . $user_id . " 
+		  and exe_exo_id=".$row["id"]. " order by exe_date desc";
+		  mysql_select_db($db_stats_database);
+		  $rs2 = mysql_query($sql2,$conn);
+		  $row2 = mysql_fetch_array($rs2);
+		      if (mysql_num_rows($rs2) > 0 )
+		      {
+			      $Exam->grades = round($row2["exe_result"]*10/$row2["exe_weighting"],1);
+		      }
+		      else
+		      {
+			  // without score. Not realized.
+			      $Exam->grades = -1;
+		      }
+
+		  // Count all attempt
+		  $sql4 = "select count(exe_id) as total from track_e_exercices where exe_cours_id='".$course_id ."' and exe_user_id=" . $user_id . " 
+		  and exe_exo_id=".$row["id"];
+		  mysql_select_db($db_stats_database);
+		  $rs4 = mysql_query($sql4,$conn);
+		  $row4 = mysql_fetch_array($rs4);
+		  $Exam->num_intentos = $row4["total"];
+
+		  // Now look for MAX exam attempt
+		  $sql3 = "select intentos from quiz_exam where id=". $row["id"];
+		  mysql_select_db($db_prefix.$course_id);
+		  $rs3 = mysql_query($sql3,$conn);
+		  $row3 = mysql_fetch_array($rs3);
+		  $Exam->max_intentos = $row3["intentos"];
+
+		  $GradesExamsList[] = $Exam;
+	      }
+
+	  /* Las version without attempt
+	  //Get Exams
+	  $sql = "select id,title from quiz where active=0 and random=10  and id in (select path from lp_item) order by id";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $GradesExams = new GradesExams();
+		  $GradesExams->id = $row["id"];
+		  $GradesExams->title = $row["title"];
+		  $GradesExams->grades = 0;
+		  // For each Exam we need the learner's score
+		  $sql = "select exe_exo_id,exe_result,exe_weighting from track_e_exercices where exe_user_id=" . $user_id . " and exe_cours_id='" . $course_id . "' and exe_exo_id=" .$row["id"] . " order by exe_date DESC";
+		  mysql_select_db($db_stats_database);
+		  $rs2 = mysql_query($sql,$conn);
+		  $row2 = mysql_fetch_array($rs2);
+		  if ( mysql_num_rows($rs2)>0)
+		  {
+
+			  $GradesExams->grades = round( ($row2["exe_result"] * 10 )/$row2["exe_weighting"]);
+		  }
+	      else
+	      {
+		  //Don't have score.
+		  $GradesExams->grades = -1;
+		  }
+		  $GradesExamsList[] = $GradesExams;
+	  }
+	*/
+
+	  // Get Exercices
+	  $sql = "select id,title from quiz where active=1 and random=0 order by id";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $GradesExercises = new GradesExercises();
+		  $GradesExercises->id = $row["id"];
+		  $GradesExercises->title = $row["title"];
+		  $GradesExercises->attempt = 0;
+		  $GradesExercises->grades = -1;
+	      // For each Exercice we need the learner's score and attempts  
+		  $sql = "select exe_exo_id,exe_result,exe_weighting from track_e_exercices where exe_user_id=" . $user_id . " and exe_cours_id='" . $course_id . "' and exe_exo_id=" .$GradesExercises->id . " order by exe_date";
+		  mysql_select_db($db_stats_database);
+		  $rs2 = mysql_query($sql,$conn);
+		  while($row2 = mysql_fetch_array($rs2)){
+			  /*
+		      Now we search for the Exercice score. If there are more than one score we take the last one.
+		      Real score (0-10) is based on this formula: 
+		      (exe_result*10)/exe_weighting
+		      */
+			  $GradesExercises->attempt = $GradesExercises->attempt+ 1;
+			  $GradesExercises->grades = round( ($row2["exe_result"] * 10 )/$row2["exe_weighting"]);
+			  }
+		  $GradesExercisesList[] = $GradesExercises;	
+		  }
+	  // Get course score
+	  $sql = "select i.id, i.title, iv.score, iv.status from lp_item as i, lp_view v, lp_item_view iv where i.item_type='sco' and i.id = iv.lp_item_id and v.user_id=". $user_id ." and v.id=iv.lp_view_id order by i.display_order";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $ProgressCourse = new ProgressCourse();
+		  $ProgressCourse->id = $row["id"];
+		  $ProgressCourse->title = $row["title"];
+		  $ProgressCourse->status = $row["status"];
+		  $ProgressCourse->progress = $row["score"];
+		  $ProgressCourseList[] = $ProgressCourse;
+	  }
+	  // Join all data
+	 
+	  $Progress->time = $diferencia_segundos;
+	  $Progress->msg_forum = $mensajes_foros;
+	  $Progress->msg_mail = $mensaje_correo;
+	  $Progress->first_access = $primer_acceso;
+	  $Progress->last_access = $ultimo_acceso;
+	  $Progress->evaluation = $nota_global;
+	  $Progress->grades_exams = $GradesExamsList;
+	  $Progress->grades_exercises = $GradesExercisesList;
+	  $Progress->progress_course = $ProgressCourseList;
+	  }
+	  return $Progress;	
   }
   
   public function getPolls($course_id){
     
     // Get pools from course
-	global $conn;
+    global $conn;
     global $db_prefix;
-	global $user_id;
-	$SurveyList = array();
-	$sql = "select survey_id,title,subtitle,DATEDIFF(CURDATE(),avail_from) as inicio, DATEDIFF(CURDATE(),avail_till) as fin, survey_invitation.answered  from survey, survey_invitation where survey_code=code and user=" . $user_id;
-    mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$Survey = new SurveyQuiz();
-		$Survey->id = $row["survey_id"];
-		$Survey->title = $row["title"];
-		$Survey->quizdescription = $row["subtitle"];
-		// look if Pool it's open and not answered
-		if ($row["inicio"]>=0 && $row["fin"]<=0 && $row["answered"]==0)
-		{
-			$Survey->open = 1;
-		}
-		else
-		{
-			$Survey->open = 0;
-		}
-		$SurveyList[] = $Survey;
-     }
-     return $SurveyList;
+    global $user_id;
+    $SurveyList = array();
+
+    if (IsUserAllowed($course_id))
+      {
+	  $sql = "select survey_id,title,subtitle,DATEDIFF(CURDATE(),avail_from) as inicio, DATEDIFF(CURDATE(),avail_till) as fin, survey_invitation.answered  from survey, survey_invitation where survey_code=code and user=" . $user_id;
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $Survey = new SurveyQuiz();
+		  $Survey->id = $row["survey_id"];
+		  $Survey->title = $row["title"];
+		  $Survey->quizdescription = $row["subtitle"];
+		  // look if Pool it's open and not answered
+		  if ($row["inicio"]>=0 && $row["fin"]<=0 && $row["answered"]==0)
+		  {
+			  $Survey->open = 1;
+		  }
+		  else
+		  {
+			  $Survey->open = 0;
+		  }
+		  $SurveyList[] = $Survey;
+	  }
+      }
+      return $SurveyList;
   }
 
   public function getPollsQuestions($course_id, $quiz_id){
@@ -1507,28 +1618,33 @@ public function getSupportedContents($course_id){
 	global $conn;
 	global $db_prefix;
 	$Questions = array();
-	$sql = "select question_id,survey_question,sort,type,max_value from survey_question where survey_id=" . $quiz_id . " order by sort";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$Question = new SurveyQuestion();
-		$Question->id = $row["question_id"];
-		$Question->question = strip_tags($row["survey_question"]);
-		$Question->sort = $row["sort"];
-		$Question->type = $row["type"];
-		$Question->max_value = $row["max_value"];
-		$Questions[] = $Question;
-	 }
+	if (IsUserAllowed($course_id))
+	{
+	  $sql = "select question_id,survey_question,sort,type,max_value from survey_question where survey_id=" . $quiz_id . " order by sort";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $Question = new SurveyQuestion();
+		  $Question->id = $row["question_id"];
+		  $Question->question = strip_tags($row["survey_question"]);
+		  $Question->sort = $row["sort"];
+		  $Question->type = $row["type"];
+		  $Question->max_value = $row["max_value"];
+		  $Questions[] = $Question;
+	  }
+	}
 	return $Questions;     
   }
 
   public function getPollsAnswers($course_id, $quiz_id){
      
     // Get pool's questions with answers
-	global $conn;
-	global $db_prefix;
-	$Answers = array();
-    // First of all we get the questions
+    global $conn;
+    global $db_prefix;
+    $Answers = array();
+    if (IsUserAllowed($course_id))
+    {
+	// First of all we get the questions
 	$Questions = self::getPollsQuestions($course_id, $quiz_id);
 	foreach ($Questions as $Question)
 	{
@@ -1546,65 +1662,82 @@ public function getSupportedContents($course_id){
 		 }
 		$Answers[] = $tmpAnswers;
 	}
-	return $Answers;
+    }
+    return $Answers;
   }
 
   public function setPollAnswer($answers){
 
     // Save pool
-	global $conn;
-	global $db_prefix;
-	global $user_id;
-
-    if ( count($answers)>0)
-	{	
-		foreach ( $answers as $answer)
-		{
-			if ($course_id=="")
-			{
-				$course_id = $answer->course_id;
-			}
-			$sql="insert into survey_answer (survey_id,question_id,option_id,value,user) values (".$answer->survey_id.",".$answer->question_id.",'".$answer->option."',".$answer->value.",".$user_id.")";
-			mysql_select_db($db_prefix.$course_id);
-			$rs = mysql_query($sql,$conn);
-		} 
-		$sql= "update survey_invitation set answered=1 where user=".$user_id." and survey_code in (select code from survey where survey_id=". $answer->survey_id.")";
-		$rs = mysql_query($sql,$conn);
-	}            
-        return True;    
+    global $conn;
+    global $db_prefix;
+    global $user_id;
+    if (IsUserAllowed($course_id))
+    {
+      if ( count($answers)>0)
+	  {	
+		  foreach ( $answers as $answer)
+		  {
+			  if ($course_id=="")
+			  {
+				  $course_id = $answer->course_id;
+			  }
+			  $sql="insert into survey_answer (survey_id,question_id,option_id,value,user) values (".$answer->survey_id.",".$answer->question_id.",'".$answer->option."',".$answer->value.",".$user_id.")";
+			  mysql_select_db($db_prefix.$course_id);
+			  $rs = mysql_query($sql,$conn);
+		  } 
+		  $sql= "update survey_invitation set answered=1 where user=".$user_id." and survey_code in (select code from survey where survey_id=". $answer->survey_id.")";
+		  $rs = mysql_query($sql,$conn);
+	  }            
+	 return True;
+      }
+      else
+      {
+	 return False;
+      }
   }
 
   public function setAnswer($course_id, $exam_id, $responses, $score, $total){
 
-    // Save answers from exercice.
-	global $conn;
-	global $db_prefix;
-	global $user_id;
-        global $db_stats_database;
-	$sql = "insert into track_e_exercices(exe_user_id, exe_cours_id, exe_exo_id, exe_result, exe_weighting,exe_date) values (".$user_id.", '".$course_id."', ".$exam_id.", ".$score.", ".$total.",now())";
-	mysql_select_db($db_stats_database);	
-	$rs = mysql_query($sql,$conn);
-   	$sql = "select max(exe_id) as maximo from track_e_exercices where exe_user_id=".$user_id." and exe_cours_id='".$course_id."' and exe_exo_id=" . $exam_id;
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-	$exe_id = $row["maximo"];
-	foreach ($responses as $response)
-	{
-		$sql= "insert into track_e_attempt (exe_id,user_id,question_id,answer,course_code,position,tms) 
-		values (".$exe_id.",".$user_id.",".$response->question_id.",'".$response->option."','".$course_id."',".$response->value.",now())";
-		mysql_select_db($db_stats_database);	
-		$rs = mysql_query($sql,$conn);
-	}
-        return True;
+      // Save answers from exercice.
+      global $conn;
+      global $db_prefix;
+      global $user_id;
+      global $db_stats_database;
+    if (IsUserAllowed($course_id))
+    {
+      $sql = "insert into track_e_exercices(exe_user_id, exe_cours_id, exe_exo_id, exe_result, exe_weighting,exe_date) values (".$user_id.", '".$course_id."', ".$exam_id.", ".$score.", ".$total.",now())";
+      mysql_select_db($db_stats_database);	
+      $rs = mysql_query($sql,$conn);
+      $sql = "select max(exe_id) as maximo from track_e_exercices where exe_user_id=".$user_id." and exe_cours_id='".$course_id."' and exe_exo_id=" . $exam_id;
+      $rs = mysql_query($sql,$conn);
+      $row = mysql_fetch_array($rs);
+      $exe_id = $row["maximo"];
+      foreach ($responses as $response)
+      {
+	      $sql= "insert into track_e_attempt (exe_id,user_id,question_id,answer,course_code,position,tms) 
+	      values (".$exe_id.",".$user_id.",".$response->question_id.",'".$response->option."','".$course_id."',".$response->value.",now())";
+	      mysql_select_db($db_stats_database);	
+	      $rs = mysql_query($sql,$conn);
+      }
+      return True;
+     }
+    else
+    {
+      return False;
+    }
   }
   
   public function getMails($course_id, $id_folder, $info){
   
     // Get al Dmail from an expecified folder
-	global $conn;
-	global $db_prefix;
-	global $user_id;
-	$DmailMailList = array();
+    global $conn;
+    global $db_prefix;
+    global $user_id;
+    $DmailMailList = array();
+
+    if (IsUserAllowed($course_id))
+    {
 	if ($info=="imp")
 	{
 	    // Dmail marked as important
@@ -1657,25 +1790,30 @@ public function getSupportedContents($course_id){
 		$DmailMail->id_attachment = $row["id_adjunto"];
 		$DmailMailList[] = $DmailMail;
 	 }
-	return $DmailMailList; 
+    }
+    return $DmailMailList; 
+    
   }
   
   public function getDescriptionAttachment($course_id, $id_attachment){
 
     // Get Dmail attachment description
     // Thrift definition give only one attachment. Dmail (at this moment) only can attach one file.	
-	global $conn;
-	global $db_prefix;
-    $sql = "select id_adjunto, size, tipo, nombre from dmail_adjuntos where id_adjunto =". $id_attachment;
+    global $conn;
+    global $db_prefix;
+    $DmailDescriptionAttachment = new DmailDescriptionAttachment();
+    if (IsUserAllowed($course_id))
+    {
+	$sql = "select id_adjunto, size, tipo, nombre from dmail_adjuntos where id_adjunto =". $id_attachment;
 	mysql_select_db($db_prefix.$course_id);
 	$rs = mysql_query($sql,$conn);
 	$row = mysql_fetch_array($rs);
-	$DmailDescriptionAttachment = new DmailDescriptionAttachment();
 	$DmailDescriptionAttachment->id = $row["id_adjunto"];
 	$DmailDescriptionAttachment->type = $row["tipo"];
 	$DmailDescriptionAttachment->size = $row["size"];
 	$DmailDescriptionAttachment->name = $row["nombre"];
-	return $DmailDescriptionAttachment; 
+      }
+    return $DmailDescriptionAttachment; 
   }
 
   public function getContentAttachment($course_id, $id_attachment){
@@ -1685,13 +1823,16 @@ public function getSupportedContents($course_id){
 	global $conn;
 	global $db_prefix;
 	global $user_id;      
-	$sql = "select a.id_adjunto, a.archivo from dmail_adjuntos as a  where a.id_adjunto = ".$id_attachment;
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
 	$DmailContentAttachment = new DmailContentAttachment();
-	$DmailContentAttachment->id = $row["id_adjunto"];
-	$DmailContentAttachment->attachment = $row["archivo"];
+	if (IsUserAllowed($course_id))
+	{
+	  $sql = "select a.id_adjunto, a.archivo from dmail_adjuntos as a  where a.id_adjunto = ".$id_attachment;
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  $row = mysql_fetch_array($rs);
+	  $DmailContentAttachment->id = $row["id_adjunto"];
+	  $DmailContentAttachment->attachment = $row["archivo"];
+	}
 	return $DmailContentAttachment; 
   }
 
@@ -1702,17 +1843,19 @@ public function getSupportedContents($course_id){
 	global $conn;
 	global $db_main_database;
 	$DmailContactsList = array();
-      
-		$sql = "Select u.user_id,u.username,u.firstname,u.lastname from user u, course_rel_user_fd m where u.user_id = m.user_id and m.course_code='".$course_id."' and u.user_id not in (1,2) and u.username not like '%demo%' order by u.status, u.firstname, u.lastname";
-	mysql_select_db($db_main_database);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$DmailContacts = new DmailContacts();
-		$DmailContacts->id_user = $row["user_id"];
-		$DmailContacts->username = $row["username"];
-		$DmailContacts->firstname = $row["firstname"];
-		$DmailContacts->lastname = $row["lastname"];
-		$DmailContactsList[] = $DmailContacts;
+	if (IsUserAllowed($course_id))
+	{      
+	  $sql = "Select u.user_id,u.username,u.firstname,u.lastname from user u, course_rel_user_fd m where u.user_id = m.user_id and m.course_code='".$course_id."' and u.user_id not in (1,2) and u.username not like '%demo%' order by u.status, u.firstname, u.lastname";
+	  mysql_select_db($db_main_database);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $DmailContacts = new DmailContacts();
+		  $DmailContacts->id_user = $row["user_id"];
+		  $DmailContacts->username = $row["username"];
+		  $DmailContacts->firstname = $row["firstname"];
+		  $DmailContacts->lastname = $row["lastname"];
+		  $DmailContactsList[] = $DmailContacts;
+	  }
 	}
 	return $DmailContactsList;
   }
@@ -1724,28 +1867,38 @@ public function getSupportedContents($course_id){
 	global $db_prefix;
 	global $user_id;
 	$DmailFoldersList = array();
-	$sql = "select  id_carpeta,nombre from dmail_carpetas where propietario=". $user_id ." order by id_carpeta";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs)){
-		$DmailFolders = new DmailFolders();
-		$DmailFolders->id = $row["id_carpeta"];
-		$DmailFolders->name = $row["nombre"];
-		$DmailFoldersList[] = $DmailFolders;
-	 }
+	if (IsUserAllowed($course_id))
+	{      
+	  $sql = "select  id_carpeta,nombre from dmail_carpetas where propietario=". $user_id ." order by id_carpeta";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs)){
+		  $DmailFolders = new DmailFolders();
+		  $DmailFolders->id = $row["id_carpeta"];
+		  $DmailFolders->name = $row["nombre"];
+		  $DmailFoldersList[] = $DmailFolders;
+	  }
+	}
 	return $DmailFoldersList; 
   }
   
   public function setFolderMail($course_id, $name_folder){  
 
-    // Add a new folder for Dmail
-	global $conn;
-	global $db_prefix;
-    global $user_id;
+      // Add a new folder for Dmail
+      global $conn;
+      global $db_prefix;
+      global $user_id;
+      if (IsUserAllowed($course_id))
+      { 
 	$sql = "insert into dmail_carpetas (nombre,propietario) values ('".$name_folder."',".$user_id.")";
-    mysql_select_db($db_prefix.$course_id);
+	mysql_select_db($db_prefix.$course_id);
 	mysql_query($sql,$conn);
 	return True;
+      }
+      else
+      {
+	return False;
+      }
   }
 
   public function changeFolder($course_id, $id_folder, $name_folder, $del_folder){
@@ -1753,21 +1906,28 @@ public function getSupportedContents($course_id){
     // Used to change folder name or to delete a folder
     global $conn;
     global $db_prefix;
-    if($del_folder==0) {
-        // Modify
-        $sql = "update dmail_carpetas set nombre='".$name_folder."' where id_carpeta=".$id_folder;
-        mysql_select_db($db_prefix.$course_id);
-        mysql_query($sql,$conn);
-        return True;
-    }  else {
-        $folder_recibidos = 1;
-        // Delete a folder. First of all we move al the content to the main folder
-        $sql = "update dmail_main set id_carpeta=".$folder_recibidos." where id_carpeta=".$id_folder;
-        mysql_select_db($db_prefix.$course_id);
-        mysql_query($sql,$conn);     
-        $sql = "delete from dmail_carpetas where id_carpeta=". $id_folder;
-        mysql_query($sql,$conn);
-        return True;
+      if (IsUserAllowed($course_id))
+      { 
+	if($del_folder==0) {
+	    // Modify
+	    $sql = "update dmail_carpetas set nombre='".$name_folder."' where id_carpeta=".$id_folder;
+	    mysql_select_db($db_prefix.$course_id);
+	    mysql_query($sql,$conn);
+	    return True;
+	}  else {
+	    $folder_recibidos = 1;
+	    // Delete a folder. First of all we move al the content to the main folder
+	    $sql = "update dmail_main set id_carpeta=".$folder_recibidos." where id_carpeta=".$id_folder;
+	    mysql_select_db($db_prefix.$course_id);
+	    mysql_query($sql,$conn);     
+	    $sql = "delete from dmail_carpetas where id_carpeta=". $id_folder;
+	    mysql_query($sql,$conn);
+	    return True;
+	}
+    }
+    else
+    {
+      return False;
     }
   }  
 
@@ -1776,6 +1936,8 @@ public function getSupportedContents($course_id){
     // Update Dmail status (Read, Unread)
 	global $conn;
 	global $db_prefix;
+      if (IsUserAllowed($course_id))
+      { 
 	if ($lecture_mail==0)
 	{
 		$sql = "update dmail_main set leido=".$lecture_mail.", fecha_lectura=null where id_mail=" .$id_mail;
@@ -1787,6 +1949,11 @@ public function getSupportedContents($course_id){
 	mysql_select_db($db_prefix.$course_id);
 	mysql_query($sql,$conn);
 	return True;
+      }
+      else
+      {
+	return False;
+      }
   }
 
   public function setImportantMail($course_id, $id_mail, $important_mail){
@@ -1794,10 +1961,17 @@ public function getSupportedContents($course_id){
     // Update Dmail status (Important)
 	global $conn;
 	global $db_prefix;
-	$sql="update dmail_main set importante=".$important_mail." where id_mail=". $id_mail;
-	mysql_select_db($db_prefix.$course_id);
-	mysql_query($sql,$conn);
-	return True;
+	if (IsUserAllowed($course_id))
+	{ 
+	  $sql="update dmail_main set importante=".$important_mail." where id_mail=". $id_mail;
+	  mysql_select_db($db_prefix.$course_id);
+	  mysql_query($sql,$conn);
+	  return True;
+	}
+	else
+	{
+	  return False;
+	}	
   }
 
   public function setDeleteMail($course_id, $id_mail, $del_mail){
@@ -1805,10 +1979,17 @@ public function getSupportedContents($course_id){
     // Update Dmail status (Deleted)
 	global $conn;
 	global $db_prefix;
-	$sql="update dmail_main set borrado=". $del_mail ." where id_mail=". $id_mail;
-	mysql_select_db($db_prefix.$course_id);
-	mysql_query($sql,$conn);
-	return True;
+	if (IsUserAllowed($course_id))
+	{ 
+	  $sql="update dmail_main set borrado=". $del_mail ." where id_mail=". $id_mail;
+	  mysql_select_db($db_prefix.$course_id);
+	  mysql_query($sql,$conn);
+	  return True;
+	}
+	else
+	{
+	  return False;
+	}
   }
 
   public function changeFolderMail($course_id, $id_mail, $id_folder){
@@ -1816,10 +1997,17 @@ public function getSupportedContents($course_id){
     // Change folder of a Dmail
 	global $conn;
 	global $db_prefix;
-	$sql="update dmail_main set id_carpeta=" .$id_folder . " where id_mail=". $id_mail;
-	mysql_select_db($db_prefix.$course_id);
-	mysql_query($sql,$conn);
-	return True;
+	if (IsUserAllowed($course_id))
+	{ 
+	  $sql="update dmail_main set id_carpeta=" .$id_folder . " where id_mail=". $id_mail;
+	  mysql_select_db($db_prefix.$course_id);
+	  mysql_query($sql,$conn);
+	  return True;
+	}
+	else
+	{
+	  return False;
+	}
   }
 
   public function setMail($course_id, $subject, $id_to, $content, $id_attachment){
@@ -1828,42 +2016,50 @@ public function getSupportedContents($course_id){
 	global $conn;
 	global $db_prefix;
 	global $user_id;
-		if ($id_to==0)
-		{
-			// Draft Dmail (folder_id=3)
-			$sql= "insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido) 
-			values ('".$subject."',".$user_id.",".$id_to.", now(), 3, 0, 0, 0, '".$content."')";
-			mysql_select_db($db_prefix.$course_id);
-			mysql_query($sql,$conn);
-		}
-		else
-		{
-			//Normal Dmail (folder_id=1 for inbox folder_id=2 for sent)
-			$sql= "insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido) values ('".$subject."',".$user_id.",".$id_to.", now(), 1, 0, 0, 0, '".$content."')";
-			mysql_select_db($db_prefix.$course_id);
-			mysql_query($sql,$conn);
-			$sql= "insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido) values ('".$subject."',".$user_id.",".$id_to.", now(), 2, 0, 1, 0, '".$content."')";
-			mysql_query($sql,$conn);
-		}
+
+	if (IsUserAllowed($course_id))
+	{ 
+	  if ($id_to==0)
+	  {
+		  // Draft Dmail (folder_id=3)
+		  $sql= "insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido) 
+		  values ('".$subject."',".$user_id.",".$id_to.", now(), 3, 0, 0, 0, '".$content."')";
+		  mysql_select_db($db_prefix.$course_id);
+		  mysql_query($sql,$conn);
+	  }
+	  else
+	  {
+		  //Normal Dmail (folder_id=1 for inbox folder_id=2 for sent)
+		  $sql= "insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido) values ('".$subject."',".$user_id.",".$id_to.", now(), 1, 0, 0, 0, '".$content."')";
+		  mysql_select_db($db_prefix.$course_id);
+		  mysql_query($sql,$conn);
+		  $sql= "insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido) values ('".$subject."',".$user_id.",".$id_to.", now(), 2, 0, 1, 0, '".$content."')";
+		  mysql_query($sql,$conn);
+	  }
     
-    // Attachment not implemented yet on app.
-	if ($id_attachment==0)
-	{
+	  // Attachment not implemented yet on app.
+	  if ($id_attachment==0)
+	  {
+	  }
+	  else
+	  {
+		  /*
+		  else:
+	      if id_to == 0:
+		  sql='insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido, id_adjunto) values (\'%s\', %i, %i, now(), 3, 0, 0, 0, \'%s\', %i)' % (subject, id_user, id_to, content, id_attachment)
+		  cursor.execute(sql)
+	      else:
+		  sql='insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido, id_adjunto) values (\'%s\', %i, %i, now(), 1, 0, 0, 0, \'%s\', %i)' % (subject, id_user, id_to, content, id_attachment)
+		  cursor.execute(sql)
+		  sql='insert into dmail_main (asunto, envia, recibe, fecha_envio, fecha_lectura, id_carpeta, borrado, leido, importante, contenido, id_adjunto) values (\'%s\', %i, %i, now(), now(), 2, 0, 1, 0, \'%s\', %i)' % (subject, id_user, id_to, content, id_attachment)
+		  cursor.execute(sql)*/
+	  }    
+	  return True;
 	}
 	else
 	{
-		/*
-		else:
-            if id_to == 0:
-                sql='insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido, id_adjunto) values (\'%s\', %i, %i, now(), 3, 0, 0, 0, \'%s\', %i)' % (subject, id_user, id_to, content, id_attachment)
-                cursor.execute(sql)
-            else:
-                sql='insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido, id_adjunto) values (\'%s\', %i, %i, now(), 1, 0, 0, 0, \'%s\', %i)' % (subject, id_user, id_to, content, id_attachment)
-                cursor.execute(sql)
-                sql='insert into dmail_main (asunto, envia, recibe, fecha_envio, fecha_lectura, id_carpeta, borrado, leido, importante, contenido, id_adjunto) values (\'%s\', %i, %i, now(), now(), 2, 0, 1, 0, \'%s\', %i)' % (subject, id_user, id_to, content, id_attachment)
-                cursor.execute(sql)*/
-	}    
-        return True;
+	  return False;
+	}
   }
 
   public function getPodcast($course_id){
@@ -1874,18 +2070,21 @@ public function getSupportedContents($course_id){
 	global $db_prefix;
 	global $ruta_web;
 	$PodcastList = array();
-	$sql = "select title,comment,size,path from podcast order by title";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs))
-	{
-		$Podcast = new Podcast();
-		$Podcast->title = $row["title"];
-		$Podcast->comment = $row["comment"];
-		$Podcast->size = $row["size"];
-		$Podcast->path =  $row["path"];
-		$PodcastList[] = $Podcast;
-	 }
+	if (IsUserAllowed($course_id))
+	{ 
+	  $sql = "select title,comment,size,path from podcast order by title";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs))
+	  {
+		  $Podcast = new Podcast();
+		  $Podcast->title = $row["title"];
+		  $Podcast->comment = $row["comment"];
+		  $Podcast->size = $row["size"];
+		  $Podcast->path =  $row["path"];
+		  $PodcastList[] = $Podcast;
+	  }
+	}
 	return $PodcastList;
   }
   
@@ -1905,89 +2104,91 @@ public function getSupportedContents($course_id){
 	$DocumentList = array();
 	$FinalDocumentList = array();
 
-	$sql = "select path,comment,title,filetype,size,readonly from document order by path";
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	while($row = mysql_fetch_array($rs))
-	{
-		// Discriminate not useful folders and subfolders.
-		$valido=0;
-		$resultado = explode ("/",$row["path"]);
-		if (in_array($resultado[1],$lista_folders) || in_array($resultado[2],$lista_folders) || in_array($resultado[3],$lista_folders))
-		{
-			// Default folder not useful for learners
-			$valido=0;
-		}	
-		else
-		{	
-			$resultado = explode (".",$row["path"]);
-			if  (in_array($resultado[1],$lista_extensiones) || $row["filetype"]=='folder')
-			{
-				// Valid extensión or folder created by tutor or gestor
-				if ($row["title"]=="")
-				{
-					// No title... rare but posible
-					$valido=0;				
-				}
-				else
-				{
-				    // Valid one.
-					$valido=1;
-				}
-			}
-			else
-			{
-				$valido=0;
-			}
-		}
+	if (IsUserAllowed($course_id))
+	{ 
+	  $sql = "select path,comment,title,filetype,size,readonly from document order by path";
+	  mysql_select_db($db_prefix.$course_id);
+	  $rs = mysql_query($sql,$conn);
+	  while($row = mysql_fetch_array($rs))
+	  {
+		  // Discriminate not useful folders and subfolders.
+		  $valido=0;
+		  $resultado = explode ("/",$row["path"]);
+		  if (in_array($resultado[1],$lista_folders) || in_array($resultado[2],$lista_folders) || in_array($resultado[3],$lista_folders))
+		  {
+			  // Default folder not useful for learners
+			  $valido=0;
+		  }	
+		  else
+		  {	
+			  $resultado = explode (".",$row["path"]);
+			  if  (in_array($resultado[1],$lista_extensiones) || $row["filetype"]=='folder')
+			  {
+				  // Valid extensión or folder created by tutor or gestor
+				  if ($row["title"]=="")
+				  {
+					  // No title... rare but posible
+					  $valido=0;				
+				  }
+				  else
+				  {
+				      // Valid one.
+					  $valido=1;
+				  }
+			  }
+			  else
+			  {
+				  $valido=0;
+			  }
+		  }
 
-		if ($valido==1)
-		{
-		$Document = new Documents();
-		$Document->dir =  $row["path"];
-		$Document->title = $row["title"];
-		$Document->filetype = $row["filetype"];
-		// El nivel en la app debe empezar en 2. :?
-		$Document->nivel = substr_count ($row["path"],'/') +1;
-		$Document->id = $c;
-		$DocumentList[] = $Document;
-		$c=$c+1;
-		}
-		
-	 }
+		  if ($valido==1)
+		  {
+		  $Document = new Documents();
+		  $Document->dir =  $row["path"];
+		  $Document->title = $row["title"];
+		  $Document->filetype = $row["filetype"];
+		  // El nivel en la app debe empezar en 2. :?
+		  $Document->nivel = substr_count ($row["path"],'/') +1;
+		  $Document->id = $c;
+		  $DocumentList[] = $Document;
+		  $c=$c+1;
+		  }
+		  
+	  }
 
-	// Delete empty folders
-	while (count($DocumentList)!=$num_items)
-	{
-		$c=0;
-		$num_items= count($DocumentList);
-		while ($c < count($DocumentList))
-		{
-			if ( ($c==count($DocumentList)) && ( $DocumentList[$c]->filetype=="folder"))
-				{
-					unset($DocumentList[$c]);
-					$c = count($DocumentList);
-				}
-			else
-				{
-					if (($DocumentList[$c]->filetype=="folder") && ($DocumentList[$c+1]->nivel<= $DocumentList[$c]->nivel) )
-					{
-						unset($DocumentList[$c]);
-						$c = count($DocumentList);
-					}
-				}
-			$c=$c+1;
-		}
+	  // Delete empty folders
+	  while (count($DocumentList)!=$num_items)
+	  {
+		  $c=0;
+		  $num_items= count($DocumentList);
+		  while ($c < count($DocumentList))
+		  {
+			  if ( ($c==count($DocumentList)) && ( $DocumentList[$c]->filetype=="folder"))
+				  {
+					  unset($DocumentList[$c]);
+					  $c = count($DocumentList);
+				  }
+			  else
+				  {
+					  if (($DocumentList[$c]->filetype=="folder") && ($DocumentList[$c+1]->nivel<= $DocumentList[$c]->nivel) )
+					  {
+						  unset($DocumentList[$c]);
+						  $c = count($DocumentList);
+					  }
+				  }
+			  $c=$c+1;
+		  }
+	  }
+	  // constructing array
+	  $c=0;
+	  foreach ( $DocumentList as $row)
+		  {			
+			  $row->id = $c;
+			  $FinalDocumentList[] = $row;
+			  $c=$c+1;
+		  }
 	}
-	// constructing array
-	$c=0;
-	foreach ( $DocumentList as $row)
-		{			
-			$row->id = $c;
-			$FinalDocumentList[] = $row;
-			$c=$c+1;
-		}
-
 	return $FinalDocumentList;
   }
   
@@ -1997,58 +2198,65 @@ public function getSupportedContents($course_id){
 	global $conn;
 	global $db_prefix;
 	global $user_id;
-    // Look for necesary id's on lp and lp_item tables
-    $sql = "select id,lp_id from lp_item where path=" . $quiz_id;
-	mysql_select_db($db_prefix.$course_id);
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-	$lp_item_id = $row["id"];
-    $lp_id = $row["lp_id"];
+	if (IsUserAllowed($course_id))
+	{ 
+	  // Look for necesary id's on lp and lp_item tables
+	  $sql = "select id,lp_id from lp_item where path=" . $quiz_id;
+	      mysql_select_db($db_prefix.$course_id);
+	      $rs = mysql_query($sql,$conn);
+	      $row = mysql_fetch_array($rs);
+	      $lp_item_id = $row["id"];
+	  $lp_id = $row["lp_id"];
 
-	// Look for id on lp_view table.
-    $sql = "select id from lp_view where user_id=" . $user_id ." and lp_id=" . $lp_id;
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-	if (mysql_num_rows($rs) > 0)
-	{
-		$lp_view_id = $row["id"];
-	}
-	else
-	{
-	    // There is no lp_view id, first access. Adding it.
-		$sql = "insert into lp_view (lp_id, user_id, view_count) values (".$lp_id.",".$user_id.", 1)";
-		$rs = mysql_query($sql,$conn);
-		// Get inserted id
-       	$sql = "select id from lp_view where user_id=" . $user_id ." and lp_id=" . $lp_id;
-		$rs = mysql_query($sql,$conn);
-		$row = mysql_fetch_array($rs);
-		$lp_view_id = $row["id"];
-	}
-    // Look for rows on lp_item_view table.
-    $sql = "select id,start_time from lp_item_view where lp_view_id=".$lp_view_id." and lp_item_id=" . $lp_item_id;
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
+	      // Look for id on lp_view table.
+	  $sql = "select id from lp_view where user_id=" . $user_id ." and lp_id=" . $lp_id;
+	      $rs = mysql_query($sql,$conn);
+	      $row = mysql_fetch_array($rs);
+	      if (mysql_num_rows($rs) > 0)
+	      {
+		      $lp_view_id = $row["id"];
+	      }
+	      else
+	      {
+		  // There is no lp_view id, first access. Adding it.
+		      $sql = "insert into lp_view (lp_id, user_id, view_count) values (".$lp_id.",".$user_id.", 1)";
+		      $rs = mysql_query($sql,$conn);
+		      // Get inserted id
+	      $sql = "select id from lp_view where user_id=" . $user_id ." and lp_id=" . $lp_id;
+		      $rs = mysql_query($sql,$conn);
+		      $row = mysql_fetch_array($rs);
+		      $lp_view_id = $row["id"];
+	      }
+	  // Look for rows on lp_item_view table.
+	  $sql = "select id,start_time from lp_item_view where lp_view_id=".$lp_view_id." and lp_item_id=" . $lp_item_id;
+	      $rs = mysql_query($sql,$conn);
+	      $row = mysql_fetch_array($rs);
 
-	if (mysql_num_rows($rs) > 0)
-	{
-		// Update values
-		$start_time = "";
-		if( $row["start_time"]== 0 )
-		{
-			$start_time= ", start_time=" . time();		
-		}
-		$sql = "update lp_item_view set status='completed' " . $start_time . " where lp_view_id=".$lp_view_id." and lp_item_id=" . $lp_item_id;
-		$rs = mysql_query($sql,$conn);
-	}
-	else
-	{
-		// There is no row, insert it.
-        $sql = "insert into lp_item_view (lp_item_id, lp_view_id, view_count, start_time, status, score, suspend_data) values (".$lp_item_id.", ".$lp_view_id.", 1,".time().", 'completed',0, '')";
-		$rs = mysql_query($sql,$conn);
-	}
-	return true;
-	
+	      if (mysql_num_rows($rs) > 0)
+	      {
+		      // Update values
+		      $start_time = "";
+		      if( $row["start_time"]== 0 )
+		      {
+			      $start_time= ", start_time=" . time();		
+		      }
+		      $sql = "update lp_item_view set status='completed' " . $start_time . " where lp_view_id=".$lp_view_id." and lp_item_id=" . $lp_item_id;
+		      $rs = mysql_query($sql,$conn);
+	      }
+	      else
+	      {
+		      // There is no row, insert it.
+	      $sql = "insert into lp_item_view (lp_item_id, lp_view_id, view_count, start_time, status, score, suspend_data) values (".$lp_item_id.", ".$lp_view_id.", 1,".time().", 'completed',0, '')";
+		      $rs = mysql_query($sql,$conn);
+	      }
+	      return true;
+	  }
+	  else
+	  {
+	      return False;
+	  }
   }
+
   public function saveExamScore($course_id, $quiz_id, $questions, $answers){
 
 	// Save Exam score
@@ -2056,43 +2264,51 @@ public function getSupportedContents($course_id){
 	global $db_prefix;
 	global $user_id;
         global $db_stats_database;
-    // Init vars
-	$weighting = 0;
-    $result = 0;
-	// Insert score
-        $sql = "insert into track_e_exercices(exe_user_id, exe_cours_id, exe_exo_id, exe_result, exe_weighting) values (".$user_id.", '".$course_id."', ". $quiz_id. ", -1, -1)";
-	mysql_select_db($db_stats_database);
-	$rs = mysql_query($sql,$conn);
-	// Get exe_id
-	$sql = "select exe_id from track_e_exercices where exe_user_id=".$user_id . " and exe_cours_id='". $course_id."' and exe_exo_id=".$quiz_id." and exe_result=-1 and exe_weighting=-1";
-	$rs = mysql_query($sql,$conn);
-	$row = mysql_fetch_array($rs);
-	$new_exe_id = $row["exe_id"];
-	$i=0;
-	// Save attempt and calculate screo
-	foreach ($questions as $question)
-		{			
-			$weighting = $weighting + $question->ponderation;
-			foreach ( $answers[$i] as $answer)
-			{
-				if ($answer->selected==true)
-				{
-					$sql = "insert into track_e_attempt (exe_id, user_id, question_id, answer, teacher_comment, marks, course_code,tms) values (".$new_exe_id.",".$user_id.",".$question->id. ",".$answer->id.",'',".$answer->ponderation.",'".$course_id."',now() )";
-					$rs = mysql_query($sql,$conn);
-					if ($answer->correct)
-					{
-						$result = $result + $answer->ponderation;
-					}
-				}			
-			}
-			$i=$i+1;
-		}
+	
+	if (IsUserAllowed($course_id))
+	{ 
+	  // Init vars
+	  $weighting = 0;
+	  $result = 0;
+	  // Insert score
+	  $sql = "insert into track_e_exercices(exe_user_id, exe_cours_id, exe_exo_id, exe_result, exe_weighting) values (".$user_id.", '".$course_id."', ". $quiz_id. ", -1, -1)";
+	  mysql_select_db($db_stats_database);
+	  $rs = mysql_query($sql,$conn);
+	  // Get exe_id
+	  $sql = "select exe_id from track_e_exercices where exe_user_id=".$user_id . " and exe_cours_id='". $course_id."' and exe_exo_id=".$quiz_id." and exe_result=-1 and exe_weighting=-1";
+	  $rs = mysql_query($sql,$conn);
+	  $row = mysql_fetch_array($rs);
+	  $new_exe_id = $row["exe_id"];
+	  $i=0;
+	  // Save attempt and calculate screo
+	  foreach ($questions as $question)
+		  {			
+			  $weighting = $weighting + $question->ponderation;
+			  foreach ( $answers[$i] as $answer)
+			  {
+				  if ($answer->selected==true)
+				  {
+					  $sql = "insert into track_e_attempt (exe_id, user_id, question_id, answer, teacher_comment, marks, course_code,tms) values (".$new_exe_id.",".$user_id.",".$question->id. ",".$answer->id.",'',".$answer->ponderation.",'".$course_id."',now() )";
+					  $rs = mysql_query($sql,$conn);
+					  if ($answer->correct)
+					  {
+						  $result = $result + $answer->ponderation;
+					  }
+				  }			
+			  }
+			  $i=$i+1;
+		  }
 
-    // And finaly update score
-	$sql = "update track_e_exercices set exe_result=".$result.",exe_weighting=".$weighting.", exe_date= now() where exe_id=" . $new_exe_id;
-	mysql_select_db($db_stats_database);
-	$rs = mysql_query($sql,$conn);
-    return true;
+	  // And finaly update score
+	  $sql = "update track_e_exercices set exe_result=".$result.",exe_weighting=".$weighting.", exe_date= now() where exe_id=" . $new_exe_id;
+	  mysql_select_db($db_stats_database);
+	  $rs = mysql_query($sql,$conn);
+	  return true;
+	}
+	else
+	{
+	    return False;
+	}
   }
   
   public function getChatReferenceTime(){
@@ -2127,34 +2343,37 @@ public function getSupportedContents($course_id){
 	global $db_prefix;
 	$Answers = array();
 	$QuestionAndAnswers = array();
+	
+	if (IsUserAllowed($course_id))
+	{ 
+	  // First of all we need questions.
+	  $Questions = self::getQuestions($course_id, $quiz_id);
 
-	// First of all we need questions.
-	$Questions = self::getQuestions($course_id, $quiz_id);
-
-	foreach ($Questions as $Question)
-	{
-		// Now for each question... Look for answers.
-		$tmpAnswers = array();
-		$sql = "select qa.*
-		from quiz q,quiz_question qq,quiz_rel_question qrq, quiz_answer qa
-		where qrq.question_id = qq.id and qrq.exercice_id=q.id and qa.question_id=qq.id and qq.id=". $Question->id ." and q.id= " . $quiz_id ." order by qa.question_id, qa.position";
-		mysql_select_db($db_prefix.$course_id);
-		$rs = mysql_query($sql,$conn);
-		while($row = mysql_fetch_array($rs)){
-			$tmp = new Answer();	
-			$tmp->id = $row["id"];
-			$tmp->answer = limpiarcadena(strip_tags($row["answer"]));
-			$tmp->comment = '';
-			$tmp->correct = $row["correct"];
-			$tmp->position = $row["position"];
-			$tmp->ponderation = $row["ponderation"];
-			$tmpAnswers[]= $tmp;
-		 }
-		$Answers[] = $tmpAnswers;
+	  foreach ($Questions as $Question)
+	  {
+		  // Now for each question... Look for answers.
+		  $tmpAnswers = array();
+		  $sql = "select qa.*
+		  from quiz q,quiz_question qq,quiz_rel_question qrq, quiz_answer qa
+		  where qrq.question_id = qq.id and qrq.exercice_id=q.id and qa.question_id=qq.id and qq.id=". $Question->id ." and q.id= " . $quiz_id ." order by qa.question_id, qa.position";
+		  mysql_select_db($db_prefix.$course_id);
+		  $rs = mysql_query($sql,$conn);
+		  while($row = mysql_fetch_array($rs)){
+			  $tmp = new Answer();	
+			  $tmp->id = $row["id"];
+			  $tmp->answer = limpiarcadena(strip_tags($row["answer"]));
+			  $tmp->comment = '';
+			  $tmp->correct = $row["correct"];
+			  $tmp->position = $row["position"];
+			  $tmp->ponderation = $row["ponderation"];
+			  $tmpAnswers[]= $tmp;
+		  }
+		  $Answers[] = $tmpAnswers;
+	  }
+	  $QuestionAndAnswers = new QuestionAndAnswers();
+	  $QuestionAndAnswers->questions = $Questions;
+	  $QuestionAndAnswers->answers = $Answers;
 	}
-	$QuestionAndAnswers = new QuestionAndAnswers();
-	$QuestionAndAnswers->questions = $Questions;
-	$QuestionAndAnswers->answers = $Answers;
 	return $QuestionAndAnswers;      
   }
   
@@ -2165,35 +2384,38 @@ public function getSupportedContents($course_id){
 	global $db_prefix;
 	$Answers = array();
 	$QuestionAndAnswers = array();
+	
+	if (IsUserAllowed($course_id))
+	{ 
+	  // First of all we need questions.
+	  $Questions = self::getQuestionsExercices ($course_id, $quiz_id);
 
-	// First of all we need questions.
-	$Questions = self::getQuestionsExercices ($course_id, $quiz_id);
+	  foreach ($Questions as $Question)
+	  {
+		  // Now for each question... Look for answers.
+		  $tmpAnswers = array();
+		  $sql = "select qa.*
+		  from quiz q,quiz_question qq,quiz_rel_question qrq, quiz_answer qa
+		  where qrq.question_id = qq.id and qrq.exercice_id=q.id and qa.question_id=qq.id and qq.id=". $Question->id ." order by qa.question_id, qa.position";
 
-	foreach ($Questions as $Question)
-	{
-		// Now for each question... Look for answers.
-		$tmpAnswers = array();
-		$sql = "select qa.*
-		from quiz q,quiz_question qq,quiz_rel_question qrq, quiz_answer qa
-		where qrq.question_id = qq.id and qrq.exercice_id=q.id and qa.question_id=qq.id and qq.id=". $Question->id ." order by qa.question_id, qa.position";
-
-		mysql_select_db($db_prefix.$course_id);
-		$rs = mysql_query($sql,$conn);
-		while($row = mysql_fetch_array($rs)){
-			$tmp = new Answer();	
-			$tmp->id = $row["id"];
-			$tmp->answer = limpiarcadena(strip_tags($row["answer"]));
-			$tmp->comment = '';
-			$tmp->correct = $row["correct"];
-			$tmp->position = $row["position"];
-			$tmp->ponderation = $row["ponderation"];
-			$tmpAnswers[]= $tmp;
-		 }
-		$Answers[] = $tmpAnswers;
+		  mysql_select_db($db_prefix.$course_id);
+		  $rs = mysql_query($sql,$conn);
+		  while($row = mysql_fetch_array($rs)){
+			  $tmp = new Answer();	
+			  $tmp->id = $row["id"];
+			  $tmp->answer = limpiarcadena(strip_tags($row["answer"]));
+			  $tmp->comment = '';
+			  $tmp->correct = $row["correct"];
+			  $tmp->position = $row["position"];
+			  $tmp->ponderation = $row["ponderation"];
+			  $tmpAnswers[]= $tmp;
+		  }
+		  $Answers[] = $tmpAnswers;
+	  }
+	  $QuestionAndAnswers = new QuestionAndAnswers();
+	  $QuestionAndAnswers->questions = $Questions;
+	  $QuestionAndAnswers->answers = $Answers;
 	}
-	$QuestionAndAnswers = new QuestionAndAnswers();
-	$QuestionAndAnswers->questions = $Questions;
-	$QuestionAndAnswers->answers = $Answers;
 	return $QuestionAndAnswers;      
   }
 
@@ -2210,41 +2432,50 @@ public function getSupportedContents($course_id){
       global $ruta_web;
       $Multimedias = array();
       $Mp3s = array();
-      // $Totales = array();
-
-      // Only sources 1 and 5 are valid now. 1 = Youtube 5 = Mp3 file
-      $sql = "select title,description,source_id,target from multimedia m , multimedia_sources ms where m.source_id=ms.id and source_id in (1,5)";
-      mysql_select_db($db_prefix.$course_id);
-      $rs = mysql_query($sql,$conn);
-      while($row = mysql_fetch_array($rs)){
-	if ($row["source_id"]==1)
-	{
-	  $Multimedia =new Multimedia_files();
-	  $Multimedia->title = $row["title"];
-	  $Multimedia->text = $row["description"];
-	  $Multimedia->url = "http://www.youtube.com/watch?v=".$row["target"];
-	  $Multimedias[] = $Multimedia;
-	}
-	else
-	{
-	  // Only source 5 now. Mp3.
-	  $Mp3 = new Multimedia_files();
-	  $Mp3->title = $row["title"];
-	  $Mp3->text = $row["description"];
-	  $Mp3->url = $ruta_web ."courses/".$course_id."/multimedia".$row["target"];
-	  $Mp3s[] = $Mp3;
-	}
-      }
-
       $Total = new Multimedia();
-      $Total->audios = $Mp3s;
-      $Total->videos = $Multimedias;
-      // $Totales[] = $Total;
+      
+      if (IsUserAllowed($course_id))
+      { 
+	// Only sources 1 and 5 are valid now. 1 = Youtube 5 = Mp3 file
+	$sql = "select title,description,source_id,target from multimedia m , multimedia_sources ms where m.source_id=ms.id and source_id in (1,5)";
+	mysql_select_db($db_prefix.$course_id);
+	$rs = mysql_query($sql,$conn);
+	while($row = mysql_fetch_array($rs)){
+	  if ($row["source_id"]==1)
+	  {
+	    $Multimedia =new Multimedia_files();
+	    $Multimedia->title = $row["title"];
+	    $Multimedia->text = $row["description"];
+	    $Multimedia->url = "http://www.youtube.com/watch?v=".$row["target"];
+	    $Multimedias[] = $Multimedia;
+	  }
+	  else
+	  {
+	    // Only source 5 now. Mp3.
+	    $Mp3 = new Multimedia_files();
+	    $Mp3->title = $row["title"];
+	    $Mp3->text = $row["description"];
+	    $Mp3->url = $ruta_web ."courses/".$course_id."/multimedia".$row["target"];
+	    $Mp3s[] = $Mp3;
+	  }
+	}
 
+
+	$Total->audios = $Mp3s;
+	$Total->videos = $Multimedias;
+      }
       return $Total;
     }
     public function getGlosario($course_id) {
-	    return true;
+      
+      if (IsUserAllowed($course_id))
+      { 
+	return true;
+      }
+      else
+      {
+	return False;
+      }
     }
 }
 

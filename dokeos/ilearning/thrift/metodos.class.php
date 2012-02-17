@@ -705,7 +705,7 @@
                 while ($row = mysql_fetch_array($rs)) {
                     $thread = new ForumThread();
                     $thread->id = $row["thread_id"];
-                    $thread->title = $row["thread_title"];
+                    $thread->title = utf8_decode($row["thread_title"]);
                     $thread->date = strtotime($row["thread_date"]);
                     $threads[] = $thread;
                 }
@@ -727,7 +727,7 @@
                 while ($row = mysql_fetch_array($rs)) {
                     $post = new ForumPost();
                     $post->id = $row["post_id"];
-                    $post->title = $row["post_title"];
+                    $post->title = utf8_decode($row["post_title"]);
                     $post->text = limpiarcadena(strip_tags($row["post_text"]));
                     // look for user values.
                     mysql_select_db($db_main_database);
@@ -751,7 +751,7 @@
             global $db_main_database;
             if (IsUserAllowed($course_id)) {
                 $sql = "insert into ".tableName($course_id,'forum_thread')." (thread_title,forum_id,thread_replies,thread_poster_id,thread_poster_name,thread_views,thread_last_post,thread_date,thread_sticky,locked)
-                values ('" . $thread_title . "'," . $forum_id . ",0," .  $user_id . ",'',0,0,now(),0,0)";
+                values ('" . mysql_escape_string(utf8_encode( $thread_title)) . "'," . $forum_id . ",0," .  $user_id . ",'',0,0,now(),0,0)";
                 mysql_select_db(databaseName($course_id));
                 mysql_query($sql,$conn);
                 // select inserted thread_id
@@ -793,7 +793,7 @@
                     $post_parent_id = 0;
                 }
                 // And finally insert new post
-                $sql = "insert into ".tableName($course_id,'forum_post')." (post_title, post_text, thread_id, forum_id, poster_id, poster_name, post_date, post_notification, post_parent_id,visible) values ('". $post_title. "','". $post_text. "'," . $thread_id . "," . $forum_id . "," . $user_id . ",'',now(),0,". $post_parent_id .",1)" ;
+                $sql = "insert into ".tableName($course_id,'forum_post')." (post_title, post_text, thread_id, forum_id, poster_id, poster_name, post_date, post_notification, post_parent_id,visible) values ('". mysql_escape_string(utf8_encode( $post_title)). "','".mysql_escape_string(utf8_encode(  $post_text)). "'," . $thread_id . "," . $forum_id . "," . $user_id . ",'',now(),0,". $post_parent_id .",1)" ;
                 return mysql_query($sql,$conn);
             } else {
                 return False;

@@ -1136,7 +1136,7 @@ public function getSupportedContents($course_id){
 	      {
 		      // insert the massage
 		      $lastmsgid = $row[0] + 1;
-		      $sql = "insert into fchat values ('".$course_id."','channelid-to-msg','ch_" . $course_id ."','" . $lastmsgid . "','\n" . $lastmsgid ."\t".time()."\t".$who."\t".$type."\t".$msg."','".time()."')";
+		      $sql = "insert into fchat values ('".$course_id."','channelid-to-msg','ch_" . $course_id ."','" . $lastmsgid . "','\n" . $lastmsgid ."\t".time()."\t".$who."\t".$type."\t".mysql_escape_string(utf8_encode($msg))."','".time()."')";
 		      mysql_query($sql,$conn);
 		      // Update lastmsgid
 		      $sql = "update fchat set leafvalue='".$lastmsgid."' where server='".$course_id."' and leaf='lastmsgid' and subgroup='ch_".$course_id."'";
@@ -1223,7 +1223,7 @@ public function getSupportedContents($course_id){
 	  while($row = mysql_fetch_array($rs)){
 		  $thread = new ForumThread();
 		  $thread->id = $row["thread_id"];
-		  $thread->title = $row["thread_title"];
+		  $thread->title = utf8_decode($row["thread_title"]);
 		  $thread->date = strtotime($row["thread_date"]);
 		  $threads[] = $thread;
 	  }
@@ -1247,8 +1247,8 @@ public function getSupportedContents($course_id){
 	while($row = mysql_fetch_array($rs)){
 		$post = new ForumPost();
 		$post->id = $row["post_id"];
-		$post->title = $row["post_title"];
-		$post->text = $row["post_text"];
+		$post->title = utf8_decode($row["post_title"]);
+		$post->text = utf8_decode($row["post_text"]);
 		// look for user values.
 		mysql_select_db($db_main_database);
 		$sql2 = "select firstname,lastname from user where user_id=" . $row["poster_id"];
@@ -1272,7 +1272,7 @@ public function getSupportedContents($course_id){
       if (IsUserAllowed($course_id))
       {
 	$sql = "insert into forum_thread (thread_title,forum_id,thread_replies,thread_poster_id,thread_poster_name,thread_views,thread_last_post,thread_date,thread_sticky,locked)
-	values ('" . $thread_title . "'," . $forum_id . ",0," .  $user_id . ",'',0,0,now(),0,0)";
+	values ('" . mysql_escape_string(utf8_encode( $thread_title)) . "'," . $forum_id . ",0," .  $user_id . ",'',0,0,now(),0,0)";
 	mysql_select_db($db_prefix.$course_id);
 	mysql_query($sql,$conn);
 	// select inserted thread_id
@@ -1319,7 +1319,7 @@ public function getSupportedContents($course_id){
 	      $post_parent_id = 0;
 	  }
 	  // And finally insert new post
-	  $sql = "insert into forum_post(post_title, post_text, thread_id, forum_id, poster_id, poster_name, post_date, post_notification, post_parent_id,visible) values ('". $post_title. "','". $post_text. "'," . $thread_id . "," . $forum_id . "," . $user_id . ",'',now(),0,". $post_parent_id .",1)" ;
+	  $sql = "insert into forum_post(post_title, post_text, thread_id, forum_id, poster_id, poster_name, post_date, post_notification, post_parent_id,visible) values ('". mysql_escape_string(utf8_encode( $post_title)). "','".mysql_escape_string(utf8_encode(  $post_text)). "'," . $thread_id . "," . $forum_id . "," . $user_id . ",'',now(),0,". $post_parent_id .",1)" ;
 	  return mysql_query($sql,$conn);
 	}
 	else
@@ -1777,7 +1777,7 @@ public function getSupportedContents($course_id){
 	while($row = mysql_fetch_array($rs)){
 		$DmailMail = new DmailMails();
 		$DmailMail->id = $row["id_mail"];
-		$DmailMail->subject = $row["asunto"];
+		$DmailMail->subject = utf8_decode($row["asunto"]);
 		$DmailMail->id_from = $row["envia"];
 		$DmailMail->id_to = $row["recibe"];
 		$DmailMail->date_send = strtotime($row["fecha_envio"]);
@@ -1786,7 +1786,7 @@ public function getSupportedContents($course_id){
 		$DmailMail->del_mail = $row["borrado"];
 		$DmailMail->lecture_mail = $row["leido"];
 		$DmailMail->important_mail = $row["importante"];
-		$DmailMail->content = $row["contenido"];
+		$DmailMail->content = utf8_decode($row["contenido"]);
 		$DmailMail->id_attachment = $row["id_adjunto"];
 		$DmailMailList[] = $DmailMail;
 	 }
@@ -2023,17 +2023,17 @@ public function getSupportedContents($course_id){
 	  {
 		  // Draft Dmail (folder_id=3)
 		  $sql= "insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido) 
-		  values ('".$subject."',".$user_id.",".$id_to.", now(), 3, 0, 0, 0, '".$content."')";
+		  values ('".mysql_escape_string(utf8_encode( $subject))."',".$user_id.",".$id_to.", now(), 3, 0, 0, 0, '".mysql_escape_string(utf8_encode( $content))."')";
 		  mysql_select_db($db_prefix.$course_id);
 		  mysql_query($sql,$conn);
 	  }
 	  else
 	  {
 		  //Normal Dmail (folder_id=1 for inbox folder_id=2 for sent)
-		  $sql= "insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido) values ('".$subject."',".$user_id.",".$id_to.", now(), 1, 0, 0, 0, '".$content."')";
+		  $sql= "insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido) values ('".mysql_escape_string(utf8_encode( $subject))."',".$user_id.",".$id_to.", now(), 1, 0, 0, 0, '".mysql_escape_string(utf8_encode( $content))."')";
 		  mysql_select_db($db_prefix.$course_id);
 		  mysql_query($sql,$conn);
-		  $sql= "insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido) values ('".$subject."',".$user_id.",".$id_to.", now(), 2, 0, 1, 0, '".$content."')";
+		  $sql= "insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido) values ('".mysql_escape_string(utf8_encode( $subject))."',".$user_id.",".$id_to.", now(), 2, 0, 1, 0, '".mysql_escape_string(utf8_encode( $content))."')";
 		  mysql_query($sql,$conn);
 	  }
     
@@ -2046,12 +2046,12 @@ public function getSupportedContents($course_id){
 		  /*
 		  else:
 	      if id_to == 0:
-		  sql='insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido, id_adjunto) values (\'%s\', %i, %i, now(), 3, 0, 0, 0, \'%s\', %i)' % (subject, id_user, id_to, content, id_attachment)
+		  sql='insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido, id_adjunto) values (\'%s\', %i, %i, now(), 3, 0, 0, 0, \'%s\', %i)' % (mysql_escape_string(utf8_encode( subject), id_user, id_to, mysql_escape_string(utf8_encode( content)), id_attachment)
 		  cursor.execute(sql)
 	      else:
-		  sql='insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido, id_adjunto) values (\'%s\', %i, %i, now(), 1, 0, 0, 0, \'%s\', %i)' % (subject, id_user, id_to, content, id_attachment)
+		  sql='insert into dmail_main (asunto, envia, recibe, fecha_envio, id_carpeta, borrado, leido, importante, contenido, id_adjunto) values (\'%s\', %i, %i, now(), 1, 0, 0, 0, \'%s\', %i)' % (mysql_escape_string(utf8_encode( subject)), id_user, id_to, mysql_escape_string(utf8_encode( content)), id_attachment)
 		  cursor.execute(sql)
-		  sql='insert into dmail_main (asunto, envia, recibe, fecha_envio, fecha_lectura, id_carpeta, borrado, leido, importante, contenido, id_adjunto) values (\'%s\', %i, %i, now(), now(), 2, 0, 1, 0, \'%s\', %i)' % (subject, id_user, id_to, content, id_attachment)
+		  sql='insert into dmail_main (asunto, envia, recibe, fecha_envio, fecha_lectura, id_carpeta, borrado, leido, importante, contenido, id_adjunto) values (\'%s\', %i, %i, now(), now(), 2, 0, 1, 0, \'%s\', %i)' % (mysql_escape_string(utf8_encode( subject), id_user, id_to, mysql_escape_string(utf8_encode( content)), id_attachment)
 		  cursor.execute(sql)*/
 	  }    
 	  return True;

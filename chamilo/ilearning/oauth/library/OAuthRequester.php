@@ -159,10 +159,6 @@ class OAuthRequester extends OAuthRequestSigner
 		$store	= OAuthStore::instance();
 		$r		= $store->getServer($consumer_key, $usr_id);
 		$uri 	= $r['request_token_uri'];
-        //error_log($uri);
-
-        //$uri="https://mobile.formaciondigital.com/oauth/request_token.php";
- //file_put_contents('php://stderr', $r);
 
 		$oauth 	= new OAuthRequester($uri, $method, $params);
 		$oauth->sign($usr_id, $r);

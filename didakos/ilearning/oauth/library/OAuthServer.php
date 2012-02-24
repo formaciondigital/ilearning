@@ -352,6 +352,7 @@ class OAuthServer extends OAuthRequestVerifier
 			// resulta que en producción no se puede hacer un echo previo a la modificacion de los header
 			// y que en la consumer_request_access se hacia otro echo... por lo que he comentado aquel y he dejado este.
 			// @egarcia (puto oauth)
+                        SetAccessUserOauth ($this->getParam('oauth_token', true),$options['verifier'],$token['token']);
 
 			$result = 'oauth_token_secret='.$this->urlencode($token['token_secret']) . '&oauth_token='.$this->urlencode($token['token']);
 

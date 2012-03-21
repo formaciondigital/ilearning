@@ -5,6 +5,7 @@ include_once "config.php";
 
 // Get POST values (tokens)
 $store   = OAuthStore::instance('MySQL', $dboptions);
+$error='';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['oauth_token']))
 {
@@ -18,7 +19,7 @@ else
 $id = GetUserByOt ($oauth_token);
 // Fetch the oauth store and the oauth server.
 $server = new OAuthServer();
-$result="";
+$usuario_invalido=False;
 try
 {
     // Check if there is a valid request token in the current request
@@ -28,6 +29,7 @@ try
 	{
 	    // Get POST values (username and password) and try to get user_id
 		$user_id = IsDokeosUserValid ($_POST['username'],$_POST['password']);
+        if ($user_id){
 		// See if the user clicked the 'allow' submit button (or whatever you choose)
 		$authorized = array_key_exists('allow', $_POST);
 		// Set the request token to be authorized or not authorized
@@ -51,6 +53,9 @@ try
 		{
 			print_r ($cadena);
 		}
+      } else {
+          $usuario_invalido=True;
+      }
 	}
 }
 catch (OAuthException $e)
@@ -58,8 +63,7 @@ catch (OAuthException $e)
     // No token to be verified in the request, show a page where the user can enter the token to be verified
     // **your code here**
 }
-if ($result=="")
-{
+if ($result==null) {
 // No username and password received.
 // Needs user interaction
 ?>
@@ -76,6 +80,10 @@ if ($result=="")
 		<div id="title">Acceso a la plataforma</div>
 	</div>
 	<div id="content">
+<? if ($usuario_invalido){?>
+    <div id="datos_incorrectos">Usuario o password no válidos. Pruebe de nuevo</div>
+<?}?>
+
     <fieldset>
     	<ul class="pageitem">
 			<li class="bigfield"><input placeholder="Usuario" type="text" name="username"></li>
